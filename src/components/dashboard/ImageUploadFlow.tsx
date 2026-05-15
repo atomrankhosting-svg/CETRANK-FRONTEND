@@ -7,7 +7,7 @@ import {
   AlertCircle, 
   Loader2, 
   ArrowRight, 
-  FileScan,
+  Sparkles,
   RefreshCcw,
   User,
   GraduationCap,
@@ -345,7 +345,7 @@ export function ImageUploadFlow({ onSearch, isLoading }: ImageUploadFlowProps) {
               <div className="bg-primary/5 p-4 flex items-center justify-between border-b">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <FileScan className="w-5 h-5 text-primary" />
+                    <Sparkles className="w-5 h-5 text-primary" />
                   </div>
                   <div>
                     <h3 className="font-bold">AI Extraction Results</h3>

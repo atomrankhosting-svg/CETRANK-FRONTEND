@@ -4,8 +4,8 @@ import path from "path";
 import { extractFcAcknowledgeDetailsFromGemini } from "./api/_shared/fcAcknowledge";
 import { extractApplicationFormFromGemini } from "./api/_shared/applicationFormExtract";
 
-const FC_ACK_ROUTE = "/api/v1/extract-fc-acknowledgement";
-const APP_FORM_ROUTE = "/api/v1/extract-application-form";
+const FC_ACK_ROUTE = "api/v1/extract-fc-acknowledgement";
+const APP_FORM_ROUTE = "api/v1/extract-application-form";
 
 const jsonResponse = (res: any, status: number, body: unknown) => {
   res.statusCode = status;
@@ -16,10 +16,10 @@ const jsonResponse = (res: any, status: number, body: unknown) => {
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const backendUrl = env.VITE_API_BASE_URL || env.BACKEND_URL;
+  const backendUrl = env.BACKEND_URL || env.VITE_API_BASE_URL;
 
   if (!backendUrl && mode === "development") {
-    console.warn("Warning: VITE_API_BASE_URL is not defined in your .env file.");
+    console.warn("Warning: BACKEND_URL or VITE_API_BASE_URL is not defined in your .env file.");
   }
 
   return {
@@ -34,6 +34,8 @@ export default defineConfig(({ mode }) => {
           target: backendUrl,
           changeOrigin: true,
           secure: true,
+          // No rewrite needed, the backend expects the /api prefix
+          // rewrite: (path) => path.replace(/^\/api/, ""),
         },
       },
     },

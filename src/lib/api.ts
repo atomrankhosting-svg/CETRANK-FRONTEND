@@ -7,36 +7,16 @@ import {
   type FcAcknowledgeAutofillData,
 } from "./fcAcknowledge";
 
-const DEFAULT_API_BASE_URL = "/api";
-
-const normalizeApiBaseUrl = (value?: string) => {
-  const trimmedValue = value?.trim();
-  if (!trimmedValue) {
-    return DEFAULT_API_BASE_URL;
-  }
-
-  if (!/^https?:\/\//i.test(trimmedValue)) {
-    return trimmedValue.replace(/\/+$/, "");
-  }
-
-  try {
-    const parsedUrl = new URL(trimmedValue);
-    if (parsedUrl.pathname === "/" || parsedUrl.pathname === "") {
-      parsedUrl.pathname = DEFAULT_API_BASE_URL;
-    }
-
-    return parsedUrl.toString().replace(/\/+$/, "");
-  } catch {
-    return trimmedValue.replace(/\/+$/, "");
-  }
-};
+const DEFAULT_API_BASE_URL = "";
 
 const envBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
-const isAbsolute = Boolean(envBaseUrl) && /^https?:\/\//i.test(envBaseUrl);
+const isAbsolute = envBaseUrl && /^https?:\/\//i.test(envBaseUrl);
 
-const BASE_URL = (import.meta.env.DEV && !isAbsolute)
+const resolvedBaseUrl = (import.meta.env.DEV && !isAbsolute)
   ? DEFAULT_API_BASE_URL
-  : normalizeApiBaseUrl(envBaseUrl);
+  : (envBaseUrl || DEFAULT_API_BASE_URL);
+
+const BASE_URL = resolvedBaseUrl.replace(/\/+$/, "");
 const API_ROOT = BASE_URL;
 
 const buildApiUrl = (path: string) =>
@@ -224,7 +204,7 @@ export async function getColleges(params?: {
   division?: string;
   is_minority?: boolean;
 }) {
-  const url = buildApiUrl("/colleges");
+  const url = buildApiUrl("/api/v1/colleges");
   if (params?.city) url.searchParams.set("city", params.city);
   if (params?.division) url.searchParams.set("division", params.division);
   if (params?.is_minority !== undefined) {
@@ -239,7 +219,7 @@ export async function getBranches(params?: {
   college_code?: string;
   branch_name?: string;
 }) {
-  const url = buildApiUrl("/branches");
+  const url = buildApiUrl("/api/v1/branches");
   if (params?.college_code) url.searchParams.set("college_code", params.college_code);
   if (params?.branch_name) url.searchParams.set("branch_name", params.branch_name);
   const res = await fetch(url.toString());
@@ -248,7 +228,7 @@ export async function getBranches(params?: {
 }
 
 export async function getMetadata(courseType: "engineering" | "pharmacy" = "engineering"): Promise<MetadataResponse> {
-  const endpoint = courseType === "pharmacy" ? "/v1/pharmacy-metadata" : "/v1/metadata";
+  const endpoint = courseType === "pharmacy" ? "/api/v1/pharmacy-metadata" : "/api/v1/metadata";
   const res = await fetch(buildApiUrl(endpoint).toString());
 
   if (!res.ok) {
@@ -304,7 +284,7 @@ export async function getMetadata(courseType: "engineering" | "pharmacy" = "engi
 
 export async function getEligibleCutoffs(request: CutoffRequest): Promise<CutoffResponse> {
   const isPharmacy = request.course_type === "pharmacy";
-  const endpoint = isPharmacy ? "/v1/get-pharmacy-cutoffs" : "/v1/get-cutoffs";
+  const endpoint = isPharmacy ? "/api/v1/get-pharmacy-cutoffs" : "/api/v1/get-cutoffs";
   const url = buildApiUrl(endpoint).toString();
   console.log("[getEligibleCutoffs] POST", url);
 
@@ -531,7 +511,7 @@ export async function extractApplicationForm(
 }
 
 export async function sendChatQuery(query: string): Promise<ChatResponse> {
-  const res = await fetch(buildApiUrl("/v1/chat").toString(), {
+  const res = await fetch(buildApiUrl("/api/v1/chat").toString(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query }),

@@ -16,7 +16,7 @@ import { supabase } from "@/lib/supabase";
 import { downloadCollegeListPdf } from "@/lib/collegePdf";
 import type { UserDetails } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { X, FileText, User, FileScan } from "lucide-react";
+import { X, FileText, User, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ListGenerator = () => {
@@ -224,7 +224,7 @@ const ListGenerator = () => {
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <FileScan className="w-4 h-4" />
+              <Sparkles className="w-4 h-4" />
               <span>FC Receipt Autofill</span>
               {inputMethod === "upload" && (
                 <motion.div 
