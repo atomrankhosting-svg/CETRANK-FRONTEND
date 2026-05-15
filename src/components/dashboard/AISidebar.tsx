@@ -5,7 +5,13 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ApiError, sendChatQuery } from "@/lib/api";
+import { ApiError, sendChatQuery, type ChatMessage } from "@/lib/api";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 const QUICK_PROMPTS = [
   "What is a safe college mix for my profile?",
@@ -14,15 +20,16 @@ const QUICK_PROMPTS = [
 ];
 
 interface Message {
-  role: "user" | "assistant";
+  role: "user" | "model";
   content: string;
+  sql_generated?: string;
 }
 
 export function AISidebar() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
-      role: "assistant",
+      role: "model",
       content:
         "Hi! I'm your AI Admission Counselor. Ask me anything about CET admissions, college selection, or counselling strategy.",
     },
@@ -73,31 +80,45 @@ export function AISidebar() {
   const handleSend = async () => {
     if (!input.trim() || isThinking) return;
     const userMsg = input.trim();
-    setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
+    
+    // Add user message to state
+    const newUserMsg: Message = { role: "user", content: userMsg };
+    setMessages((prev) => [...prev, newUserMsg]);
     setInput("");
     setIsThinking(true);
-    setThoughts(["> Connecting to Admission Engine...", "> Analyzing query..."]);
+    setThoughts(["Thinking..."]);
 
     try {
-      const data = await sendChatQuery(userMsg);
+      // Prepare history for API (all messages including the new one)
+      const history: ChatMessage[] = messages.map(m => ({
+        role: m.role,
+        content: m.content
+      }));
 
-      if (data.sql_generated) {
+      const data = await sendChatQuery(userMsg, history);
+
+      // Handle scenario based on whether SQL was generated
+      const isDataQuery = data.sql_generated && data.sql_generated !== "N/A";
+      
+      if (isDataQuery) {
         setThoughts([
+          "> Connecting to Admission Engine...",
           `> Generated SQL: ${data.sql_generated}`,
           `> Rows matched: ${data.row_count ?? "unknown"}`,
           "> Formatting answer...",
         ]);
-        await pause(450);
+        await pause(600);
       }
 
       setMessages((prev) => [
         ...prev,
         {
-          role: "assistant",
+          role: "model",
           content:
             typeof data.answer === "string" && data.answer.trim()
               ? cleanAssistantText(data.answer)
               : "I found a result, but the response was empty. Please try asking in a different way.",
+          sql_generated: isDataQuery ? data.sql_generated : undefined,
         },
       ]);
     } catch (error) {
@@ -105,7 +126,7 @@ export function AISidebar() {
       setMessages((prev) => [
         ...prev,
         {
-          role: "assistant",
+          role: "model",
           content: getChatErrorMessage(error),
         },
       ]);
@@ -236,7 +257,7 @@ export function AISidebar() {
                           : "bg-white/70 dark:bg-slate-900/60 text-foreground rounded-[24px] rounded-bl-lg border border-white/40 shadow-sm ai-prose backdrop-blur-md"
                       }`}
                     >
-                      {msg.role === "assistant" ? (
+                      {msg.role === "model" ? (
                         <div className="w-full overflow-hidden">
                           <ReactMarkdown 
                             remarkPlugins={[remarkGfm]}
@@ -250,6 +271,23 @@ export function AISidebar() {
                           >
                             {msg.content}
                           </ReactMarkdown>
+
+                          {msg.sql_generated && (
+                            <Accordion type="single" collapsible className="w-full mt-4 border-t border-border/20 pt-2">
+                              <AccordionItem value="sql" className="border-none">
+                                <AccordionTrigger className="py-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hover:no-underline">
+                                  Technical Details
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                  <div className="rounded-lg bg-slate-950 p-3 font-mono text-[11px] text-slate-300 overflow-x-auto border border-white/10 shadow-inner">
+                                    <pre className="whitespace-pre-wrap break-all">
+                                      {msg.sql_generated}
+                                    </pre>
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            </Accordion>
+                          )}
                         </div>
                       ) : (
                         msg.content

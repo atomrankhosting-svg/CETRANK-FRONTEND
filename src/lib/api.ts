@@ -168,10 +168,17 @@ export interface MetadataResponse {
   minorities: string[];
 }
 
+export interface ChatMessage {
+  role: "user" | "model";
+  content: string;
+}
+
 export interface ChatResponse {
+  query: string;
   answer: string;
-  sql_generated?: string;
-  row_count?: number;
+  sql_generated: string;
+  row_count: number;
+  data: any[];
 }
 
 export class ApiError extends Error {
@@ -530,11 +537,11 @@ export async function extractApplicationForm(
   return data as ApplicationFormExtractResponse;
 }
 
-export async function sendChatQuery(query: string): Promise<ChatResponse> {
+export async function sendChatQuery(query: string, history: ChatMessage[] = []): Promise<ChatResponse> {
   const res = await fetch(buildApiUrl("/v1/chat").toString(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ query, history }),
   });
 
   if (!res.ok) {
