@@ -16,24 +16,43 @@ import { supabase } from "@/lib/supabase";
 import { downloadCollegeListPdf } from "@/lib/collegePdf";
 import type { UserDetails } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { X, FileText, User, FileScan } from "lucide-react";
+import { X, User, FileScan } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+type InputMethod = "manual" | "upload";
+
+type GeneratedListState = {
+  results: CollegeResult[];
+  userDetails: UserDetails | null;
+  hasSearched: boolean;
+  lastFilters: CutoffRequest | null;
+};
+
+const createInitialGeneratedListState = (): GeneratedListState => ({
+  results: [],
+  userDetails: null,
+  hasSearched: false,
+  lastFilters: null,
+});
 
 const ListGenerator = () => {
   const isMobile = useIsMobile();
   const { user } = useAuth();
-  const [results, setResults] = useState<CollegeResult[]>([]);
-  const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [lastFilters, setLastFilters] = useState<CutoffRequest | null>(null);
-  const [inputMethod, setInputMethod] = useState<"manual" | "upload">("manual");
+  const [inputMethod, setInputMethod] = useState<InputMethod>("manual");
+  const [generatedLists, setGeneratedLists] = useState<Record<InputMethod, GeneratedListState>>({
+    manual: createInitialGeneratedListState(),
+    upload: createInitialGeneratedListState(),
+  });
+  const [loadingMethod, setLoadingMethod] = useState<InputMethod | null>(null);
+  const [downloadingMethod, setDownloadingMethod] = useState<InputMethod | null>(null);
 
   const [availableCredits, setAvailableCredits] = useState<number | null>(null);
   const [showPricingModal, setShowPricingModal] = useState(false);
 
   const headerRef = useRef<HTMLDivElement>(null);
+  const activeGeneratedList = generatedLists[inputMethod];
+  const isCurrentMethodLoading = loadingMethod === inputMethod;
+  const isCurrentMethodDownloading = downloadingMethod === inputMethod;
 
   useEffect(() => {
     if (!headerRef.current) return;
@@ -91,16 +110,30 @@ const ListGenerator = () => {
       return;
     }
 
-    setIsLoading(true);
-    setHasSearched(true);
-    setLastFilters(filters);
+    const searchMethod = inputMethod;
+
+    setLoadingMethod(searchMethod);
+    setGeneratedLists((currentLists) => ({
+      ...currentLists,
+      [searchMethod]: {
+        ...currentLists[searchMethod],
+        hasSearched: true,
+        lastFilters: filters,
+      },
+    }));
 
     try {
       const apiResponse = await getEligibleCutoffs(filters);
       const { results: list, user_details } = apiResponse;
       
-      setResults(list);
-      setUserDetails(user_details);
+      setGeneratedLists((currentLists) => ({
+        ...currentLists,
+        [searchMethod]: {
+          ...currentLists[searchMethod],
+          results: list,
+          userDetails: user_details,
+        },
+      }));
 
       if (list.length === 0) {
         toast({
@@ -155,21 +188,32 @@ const ListGenerator = () => {
             : "Failed to fetch results. Try again.",
         variant: "destructive",
       });
-      setResults([]);
+      setGeneratedLists((currentLists) => ({
+        ...currentLists,
+        [searchMethod]: {
+          ...currentLists[searchMethod],
+          results: [],
+        },
+      }));
     } finally {
-      setIsLoading(false);
+      setLoadingMethod((currentMethod) => (currentMethod === searchMethod ? null : currentMethod));
     }
   };
 
   const handleDownloadPdf = async () => {
-    if (results.length === 0) return;
-    setIsDownloadingPdf(true);
+    if (activeGeneratedList.results.length === 0) return;
+    const downloadMethod = inputMethod;
+    setDownloadingMethod(downloadMethod);
 
     try {
-      await downloadCollegeListPdf({ results, filters: lastFilters, userDetails });
+      await downloadCollegeListPdf({
+        results: activeGeneratedList.results,
+        filters: activeGeneratedList.lastFilters,
+        userDetails: activeGeneratedList.userDetails,
+      });
       toast({
         title: "PDF downloaded",
-        description: `Saved ${results.length} college${results.length !== 1 ? "s" : ""} as a PDF.`,
+        description: `Saved ${activeGeneratedList.results.length} college${activeGeneratedList.results.length !== 1 ? "s" : ""} as a PDF.`,
       });
     } catch (error) {
       console.error("Failed to generate PDF:", error);
@@ -179,7 +223,7 @@ const ListGenerator = () => {
         variant: "destructive",
       });
     } finally {
-      setIsDownloadingPdf(false);
+      setDownloadingMethod((currentMethod) => (currentMethod === downloadMethod ? null : currentMethod));
     }
   };
 
@@ -244,7 +288,7 @@ const ListGenerator = () => {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3 }}
               >
-                <FilterBar onSearch={handleSearch} isLoading={isLoading} />
+                <FilterBar onSearch={handleSearch} isLoading={isCurrentMethodLoading} />
               </motion.div>
             ) : (
               <motion.div
@@ -254,18 +298,18 @@ const ListGenerator = () => {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3 }}
               >
-                <ImageUploadFlow onSearch={handleSearch} isLoading={isLoading} />
+                <ImageUploadFlow onSearch={handleSearch} isLoading={isCurrentMethodLoading} />
               </motion.div>
             )}
           </AnimatePresence>
 
           <motion.div layout className="space-y-4">
             <CollegeResults
-              results={results}
-              isLoading={isLoading}
-              hasSearched={hasSearched}
+              results={activeGeneratedList.results}
+              isLoading={isCurrentMethodLoading}
+              hasSearched={activeGeneratedList.hasSearched}
               onDownloadPdf={handleDownloadPdf}
-              isDownloadingPdf={isDownloadingPdf}
+              isDownloadingPdf={isCurrentMethodDownloading}
             />
           </motion.div>
         </div>
