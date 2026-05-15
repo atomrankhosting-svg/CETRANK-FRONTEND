@@ -49,7 +49,7 @@ export default async function handler(req: any, res: any) {
     return sendJson(res, 400, { detail: "Missing upstream API path." });
   }
 
-  const targetUrl = new URL(backendBaseUrl.replace(/\/$/, "") + "/api/v1/" + upstreamPath);
+  const targetUrl = new URL(`/api/v1/${upstreamPath}`, backendBaseUrl);
   const query = req.query && typeof req.query === "object" ? req.query : {};
 
   for (const [key, value] of Object.entries(query)) {

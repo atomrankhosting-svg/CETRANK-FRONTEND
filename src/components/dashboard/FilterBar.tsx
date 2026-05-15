@@ -1081,7 +1081,6 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
                 <FilterCard className="md:p-5">
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-3">
                     <Label className="flex items-center gap-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      <Gauge className="h-3.5 w-3.5" />
                       CET Percentile
                     </Label>
                     <span className="text-sm font-mono font-bold text-primary tabular-nums">
@@ -1101,7 +1100,6 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
                   <FilterCard className="md:p-5">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <Label className="flex items-center gap-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                        <Gauge className="h-3.5 w-3.5" />
                         JEE Percentile
                       </Label>
                       <span className="text-sm font-mono font-bold text-primary tabular-nums">
