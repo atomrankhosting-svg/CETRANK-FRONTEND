@@ -97,9 +97,13 @@ const normalizeCategoryOption = (value: string) => {
 };
 
 const formatPercentile = (value: number | string) => {
+  if (String(value).trim() === "") {
+    return "-";
+  }
+
   const num = Number.parseFloat(String(value));
   if (!Number.isFinite(num)) {
-    return "0";
+    return "-";
   }
 
   return Number.isInteger(num) ? String(num) : num.toFixed(2);
@@ -184,8 +188,8 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
   const [language, setLanguage] = useState<string>("Not Applicable");
   const [selectedDivisions, setSelectedDivisions] = useState<string[]>([]);
   const [gender, setGender] = useState("");
-  const [percentile, setPercentile] = useState<string | number>(75);
-  const [jeePercentile, setJeePercentile] = useState<string | number>(0);
+  const [percentile, setPercentile] = useState<string | number>("");
+  const [jeePercentile, setJeePercentile] = useState<string | number>("");
   const [branches, setBranches] = useState<BranchFilters>(emptyBranches);
   const [isEws, setIsEws] = useState(false);
   const [locationFlexibility, setLocationFlexibility] = useState<1 | 2 | 3>(3);
@@ -459,8 +463,8 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
     setLanguage("Not Applicable");
     setSelectedDivisions([]);
     setGender("");
-    setPercentile(75);
-    setJeePercentile(0);
+    setPercentile("");
+    setJeePercentile("");
     setBranches(emptyBranches);
     setIsEws(false);
     setLocationFlexibility(3);
