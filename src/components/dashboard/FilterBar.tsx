@@ -11,6 +11,7 @@ import {
   Upload,
   Loader2,
   Sparkles,
+  Target,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -193,6 +194,7 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
   const [branches, setBranches] = useState<BranchFilters>(emptyBranches);
   const [isEws, setIsEws] = useState(false);
   const [locationFlexibility, setLocationFlexibility] = useState<1 | 2 | 3>(3);
+  const [capRound, setCapRound] = useState<1 | 2 | 3 | null>(null);
   const [courseType, setCourseType] = useState<"engineering" | "pharmacy">("engineering");
   const [selectedPharmacyCourses, setSelectedPharmacyCourses] = useState<string[]>(["Pharmacy", "Pharm D ( Doctor of Pharmacy)"]);
   const [isExtractingDocument, setIsExtractingDocument] = useState(false);
@@ -447,6 +449,7 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
       ...branches,
       is_ews: isEws,
       location_flexibility: locationFlexibility,
+      cap_no: capRound,
     };
 
     console.log("[FilterBar] Sending filters:", JSON.stringify(filters, null, 2));
@@ -468,6 +471,7 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
     setBranches(emptyBranches);
     setIsEws(false);
     setLocationFlexibility(3);
+    setCapRound(null);
     setCourseType("engineering");
     setSelectedPharmacyCourses(["Pharmacy", "Pharm D ( Doctor of Pharmacy)"]);
     setCategorySearch("");
@@ -1205,6 +1209,55 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
                       onClick={() => setLocationFlexibility(lf.value as 1 | 2 | 3)}
                     >
                       {lf.label}
+                    </Button>
+                  ))}
+                </div>
+              </FilterCard>
+
+              {/* ── Row 4.6: CAP Round Selector ── */}
+              <FilterCard className="md:p-5">
+                <Label className="mb-2 flex items-center gap-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  <Target className="w-3.5 h-3.5 text-primary" />
+                  CAP Round
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center p-0.5 rounded-full hover:bg-primary/10 hover:text-primary transition-all duration-200"
+                        title="About CAP Round"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Info className="w-3.5 h-3.5" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="z-[100] w-72 rounded-2xl border border-border/40 p-4 glass-strong shadow-2xl">
+                      <h4 className="text-xs font-bold text-primary uppercase tracking-wider mb-2">
+                        CAP Round Selection
+                      </h4>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Select a CAP round to receive additional top-tier college recommendations
+                        tailored to that specific admission round. Click a selected round again to
+                        deselect.
+                      </p>
+                    </PopoverContent>
+                  </Popover>
+                </Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: "Round 1", value: 1 },
+                    { label: "Round 2", value: 2 },
+                    { label: "Round 3", value: 3 },
+                  ].map((cr) => (
+                    <Button
+                      key={cr.label}
+                      variant={capRound === cr.value ? "default" : "outline"}
+                      size="sm"
+                      className={`rounded-xl transition-all ${
+                        capRound === cr.value ? "glow-subtle" : ""
+                      }`}
+                      onClick={() => setCapRound(capRound === cr.value ? null : (cr.value as 1 | 2 | 3))}
+                    >
+                      {cr.label}
                     </Button>
                   ))}
                 </div>

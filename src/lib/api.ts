@@ -124,6 +124,7 @@ export interface CutoffRequest {
   location_flexibility?: 1 | 2 | 3;
   course_type?: "engineering" | "pharmacy";
   course_names?: string[];
+  cap_no?: 1 | 2 | 3 | null;
 }
 
 export interface CollegeResult {
@@ -159,6 +160,7 @@ export interface CollegeResult {
   University?: string;
   status?: string;
   is_local?: boolean;
+  is_cap_top?: boolean;
 }
 
 export interface MetadataResponse {
