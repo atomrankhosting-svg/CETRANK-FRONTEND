@@ -1,0 +1,56 @@
+name: Sync to Mirror Repo
+
+on:
+  push:
+    branches:
+      - '**'          # triggers on pushes to ANY branch
+  delete:             # also sync branch/tag deletions
+    branches:
+      - '**'
+
+jobs:
+  sync:
+    name: Mirror push to atomrankhosting-svg/CETRANK-FRONTEND
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout the full history of the source repo ──────────────────
+      - name: Checkout source repo (full clone)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # full history, not a shallow clone
+          fetch-tags: true        # include tags
+
+      # ── 2. Configure Git identity ─────────────────────────────────────────
+      - name: Set Git identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # ── 3. Add the mirror as a remote and force-push ──────────────────────
+      - name: Push to mirror (atomrankhosting-svg)
+        env:
+          # Store this PAT as a secret in repo 2:
+          #   Settings → Secrets and variables → Actions → New repository secret
+          #   Name: MIRROR_PAT
+          #   Value: a Fine-Grained PAT that has *write* access to
+          #          atomrankhosting-svg/CETRANK-FRONTEND
+          MIRROR_PAT: ${{ secrets.MIRROR_PAT }}
+        run: |
+          # Build the authenticated remote URL
+          MIRROR_URL="https://x-access-token:${MIRROR_PAT}@github.com/atomrankhosting-svg/CETRANK-FRONTEND.git"
+
+          git remote add mirror "$MIRROR_URL"
+
+          # Push the branch that triggered this workflow
+          # --force ensures diverged histories are overwritten on the mirror
+          git push mirror HEAD:${{ github.ref }} --force
+
+      # ── 4. (Optional) Also sync all tags ─────────────────────────────────
+      - name: Sync tags to mirror
+        env:
+          MIRROR_PAT: ${{ secrets.MIRROR_PAT }}
+        run: |
+          MIRROR_URL="https://x-access-token:${MIRROR_PAT}@github.com/atomrankhosting-svg/CETRANK-FRONTEND.git"
+          git remote set-url mirror "$MIRROR_URL"
+          git push mirror --tags --force
