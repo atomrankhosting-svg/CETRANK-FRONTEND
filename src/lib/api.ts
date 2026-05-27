@@ -603,3 +603,71 @@ export const BRANCH_FILTERS = [
   { key: "is_civil", label: "Civil" },
   { key: "is_other", label: "Other" },
 ] as const;
+
+export interface CreateOrderResponse {
+  id: string;
+  amount: number;
+  currency: string;
+}
+
+export async function createRazorpayOrder(
+  tier: "basic" | "standard" | "pro",
+  couponCode?: string
+): Promise<CreateOrderResponse> {
+  const url = new URL("/api/v1/payment/create-order", window.location.origin).toString();
+  const body: Record<string, string> = { tier };
+  if (couponCode) body.coupon_code = couponCode;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const detail = await parseErrorDetail(res);
+    throw new ApiError(res.status, `Failed to create Razorpay order (${res.status})`, detail);
+  }
+
+  return res.json();
+}
+
+export async function verifyRazorpaySignature(payload: {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}): Promise<{ status: string }> {
+  const url = new URL("/api/v1/payment/verify-signature", window.location.origin).toString();
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const detail = await parseErrorDetail(res);
+    throw new ApiError(res.status, `Payment signature verification failed (${res.status})`, detail);
+  }
+
+  return res.json();
+}
+
+export async function claimFreeCoupon(
+  couponCode: string,
+  tier: "basic" | "standard" | "pro"
+): Promise<{ success: boolean; credits: number }> {
+  const url = new URL("/api/v1/payment/claim-free-coupon", window.location.origin).toString();
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ coupon_code: couponCode, tier }),
+  });
+
+  if (!res.ok) {
+    const detail = await parseErrorDetail(res);
+    throw new ApiError(res.status, detail || "Failed to claim free coupon.", detail);
+  }
+
+  return res.json();
+}
+

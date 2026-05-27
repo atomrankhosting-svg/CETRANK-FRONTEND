@@ -3,9 +3,15 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { extractFcAcknowledgeDetailsFromGemini } from "./api/_shared/fcAcknowledge";
 import { extractApplicationFormFromGemini } from "./api/_shared/applicationFormExtract";
+import createOrderHandler from "./api/v1/payment/create-order";
+import verifySignatureHandler from "./api/v1/payment/verify-signature";
+import claimFreeCouponHandler from "./api/v1/payment/claim-free-coupon";
 
 const FC_ACK_ROUTE = "/api/v1/extract-fc-acknowledgement";
 const APP_FORM_ROUTE = "/api/v1/extract-application-form";
+const CREATE_ORDER_ROUTE = "/api/v1/payment/create-order";
+const VERIFY_SIGNATURE_ROUTE = "/api/v1/payment/verify-signature";
+const CLAIM_FREE_COUPON_ROUTE = "/api/v1/payment/claim-free-coupon";
 
 const jsonResponse = (res: any, status: number, body: unknown) => {
   res.statusCode = status;
@@ -16,6 +22,8 @@ const jsonResponse = (res: any, status: number, body: unknown) => {
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
+  Object.assign(process.env, env);
+
   const backendUrl = env.VITE_API_BASE_URL || env.BACKEND_URL;
 
   if (!backendUrl && mode === "development") {
@@ -30,7 +38,7 @@ export default defineConfig(({ mode }) => {
         overlay: false,
       },
       proxy: {
-        "^/api/(?!v1/extract-fc-acknowledgement$|v1/extract-application-form$)": {
+        "^/api/(?!v1/extract-fc-acknowledgement$|v1/extract-application-form$|v1/payment/)": {
           target: backendUrl,
           changeOrigin: true,
           secure: true,
@@ -106,6 +114,30 @@ export default defineConfig(({ mode }) => {
             });
             req.on("error", next);
           });
+
+          const handleServerless = (handler: any) => {
+            return (req: any, res: any, next: any) => {
+              const chunks: Uint8Array[] = [];
+              req.on("data", (chunk) => chunks.push(chunk));
+              req.on("end", async () => {
+                try {
+                  const rawBody = Buffer.concat(chunks).toString("utf8");
+                  req.body = rawBody ? JSON.parse(rawBody) : {};
+                  await handler(req, res);
+                } catch (error: any) {
+                  console.error("[vite dev-api-middleware] Request failed:", error);
+                  jsonResponse(res, 500, {
+                    detail: error instanceof Error ? error.message : "Internal server error.",
+                  });
+                }
+              });
+              req.on("error", next);
+            };
+          };
+
+          server.middlewares.use(CREATE_ORDER_ROUTE, handleServerless(createOrderHandler));
+          server.middlewares.use(VERIFY_SIGNATURE_ROUTE, handleServerless(verifySignatureHandler));
+          server.middlewares.use(CLAIM_FREE_COUPON_ROUTE, handleServerless(claimFreeCouponHandler));
         },
       },
     ],

@@ -114,13 +114,31 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        <div className="mt-12 flex justify-center">
+        <div className="mt-12 flex flex-col justify-center gap-4 sm:flex-row">
           <Link to="/admin/all-lists">
             <Button
               size="lg"
-              className="h-14 rounded-full px-8 text-base shadow-lg transition-all hover:shadow-primary/25"
+              className="h-14 w-full rounded-full px-8 text-base shadow-lg transition-all hover:shadow-primary/25 sm:w-auto"
             >
               See All Generated Lists
+            </Button>
+          </Link>
+          <Link to="/admin/coupons">
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-14 w-full rounded-full border-border/80 px-8 text-base hover:bg-muted/50 sm:w-auto"
+            >
+              Manage Coupon Codes
+            </Button>
+          </Link>
+          <Link to="/admin/support">
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-14 w-full rounded-full border-border/80 px-8 text-base hover:bg-muted/50 sm:w-auto"
+            >
+              Support Tickets
             </Button>
           </Link>
         </div>
