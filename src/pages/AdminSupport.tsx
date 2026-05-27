@@ -3,6 +3,7 @@ import { Link, Navigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { useAdminAccess } from "@/hooks/use-admin-access";
 import { SiteBackdrop } from "@/components/effects/SiteBackdrop";
 import {
   ArrowLeft,
@@ -37,8 +38,8 @@ interface SupportTicket {
 }
 
 export default function AdminSupport() {
-  const { user, isLoading: authLoading } = useAuth();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const { user } = useAuth();
+  const { loading: accessLoading, allowed } = useAdminAccess();
   const [loading, setLoading] = useState(true);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [isFallback, setIsFallback] = useState(false);
@@ -118,37 +119,12 @@ export default function AdminSupport() {
   };
 
   useEffect(() => {
-    const checkAdmin = async () => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("is_admin")
-          .eq("id", user.id)
-          .single();
-
-        if (!profile?.is_admin) {
-          setIsAdmin(false);
-          setLoading(false);
-          return;
-        }
-        setIsAdmin(true);
-        await fetchTickets();
-      } catch (error) {
-        console.error("Error verifying admin status:", error);
-        setIsAdmin(false);
-        setLoading(false);
-      }
-    };
-
-    if (!authLoading) {
-      checkAdmin();
+    if (!allowed) {
+      setLoading(false);
+      return;
     }
-  }, [user, authLoading]);
+    void fetchTickets();
+  }, [allowed]);
 
   useEffect(() => {
     if (selectedTicket) {
@@ -272,7 +248,7 @@ export default function AdminSupport() {
     }
   };
 
-  if (authLoading || (loading && tickets.length === 0)) {
+  if (accessLoading || (loading && tickets.length === 0)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -280,7 +256,7 @@ export default function AdminSupport() {
     );
   }
 
-  if (!user || isAdmin === false) {
+  if (!allowed) {
     return <Navigate to="/" replace />;
   }
 

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
-import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { useAdminAccess } from "@/hooks/use-admin-access";
 import { SiteBackdrop } from "@/components/effects/SiteBackdrop";
 import { Users, FileText, Activity, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,51 +13,34 @@ interface AdminStats {
 }
 
 const AdminDashboard = () => {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, loading: accessLoading, allowed } = useAdminAccess();
   const [stats, setStats] = useState<AdminStats | null>(null);
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchAdminData = async () => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+    if (!allowed || !user) {
+      setStatsLoading(false);
+      return;
+    }
 
+    const fetchStats = async () => {
+      setStatsLoading(true);
       try {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("is_admin")
-          .eq("id", user.id)
-          .single();
-
-        if (!profile?.is_admin) {
-          setIsAdmin(false);
-          setLoading(false);
-          return;
-        }
-
-        setIsAdmin(true);
-
         const { data, error } = await supabase.rpc("get_admin_stats");
-
         if (error) throw error;
         setStats(data as AdminStats);
       } catch (error) {
         console.error("Error fetching admin stats:", error);
-        setIsAdmin(false);
+        setStats(null);
       } finally {
-        setLoading(false);
+        setStatsLoading(false);
       }
     };
 
-    if (!authLoading) {
-      fetchAdminData();
-    }
-  }, [user, authLoading]);
+    void fetchStats();
+  }, [user, allowed]);
 
-  if (authLoading || loading) {
+  if (accessLoading || statsLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -65,7 +48,7 @@ const AdminDashboard = () => {
     );
   }
 
-  if (!user || isAdmin === false) {
+  if (!allowed) {
     return <Navigate to="/" replace />;
   }
 

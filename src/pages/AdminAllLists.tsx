@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
-import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { useAdminAccess } from "@/hooks/use-admin-access";
 import { SiteBackdrop } from "@/components/effects/SiteBackdrop";
 import {
   ArrowLeft,
@@ -17,35 +17,21 @@ import { Button } from "@/components/ui/button";
 const PAGE_SIZE = 20;
 
 export default function AdminAllLists() {
-  const { user, isLoading: authLoading } = useAuth();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const { user, loading: accessLoading, allowed } = useAdminAccess();
   const [loading, setLoading] = useState(true);
   const [lists, setLists] = useState<any[]>([]);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
-    const fetchLists = async () => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+    if (!allowed || !user) {
+      setLoading(false);
+      return;
+    }
 
+    const fetchLists = async () => {
       try {
         setLoading(true);
-
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("is_admin")
-          .eq("id", user.id)
-          .single();
-
-        if (!profile?.is_admin) {
-          setIsAdmin(false);
-          setLoading(false);
-          return;
-        }
-        setIsAdmin(true);
 
         const from = page * PAGE_SIZE;
         const to = from + PAGE_SIZE - 1;
@@ -67,12 +53,10 @@ export default function AdminAllLists() {
       }
     };
 
-    if (!authLoading) {
-      fetchLists();
-    }
-  }, [user, authLoading, page]);
+    void fetchLists();
+  }, [user, allowed, page]);
 
-  if (authLoading || (loading && lists.length === 0)) {
+  if (accessLoading || (loading && lists.length === 0)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -80,7 +64,7 @@ export default function AdminAllLists() {
     );
   }
 
-  if (!user || isAdmin === false) {
+  if (!allowed) {
     return <Navigate to="/" replace />;
   }
 
