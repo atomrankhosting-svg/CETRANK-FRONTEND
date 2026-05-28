@@ -204,6 +204,8 @@ const ListGenerator = () => {
   };
 
   const isTierFree = (tier: "basic" | "standard" | "pro") => getDisplayPrice(tier) <= 0;
+  const getPayableAmountInPaise = (tier: "basic" | "standard" | "pro") =>
+    Math.max(0, Math.round(getDisplayPrice(tier) * 100));
 
   const handlePayment = async (tier: "basic" | "standard" | "pro", creditsToAdd: number) => {
     if (!user) {
@@ -218,33 +220,61 @@ const ListGenerator = () => {
     setPaymentLoadingTier(tier);
 
     try {
-      // Handle free coupon claim (100% discount)
-      if (appliedCoupon && isTierFree(tier)) {
-        const result = await claimFreeCoupon(appliedCoupon.code, tier);
-        if (result.success) {
-          const newTotal = (availableCredits || 0) + result.credits;
-          const { error } = await supabase
-            .from("user_credits")
-            .update({ available_credits: newTotal })
-            .eq("user_id", user.id);
+      const payableAmountInPaise = getPayableAmountInPaise(tier);
 
-          if (error) {
+      // Skip Razorpay for free checkout (zero-priced tier or 100% discount coupon)
+      if (payableAmountInPaise <= 0) {
+        if (appliedCoupon) {
+          const result = await claimFreeCoupon(appliedCoupon.code, tier);
+          if (result.success) {
+            const newTotal = (availableCredits || 0) + result.credits;
+            const { error } = await supabase
+              .from("user_credits")
+              .update({ available_credits: newTotal })
+              .eq("user_id", user.id);
+
+            if (error) {
+              toast({
+                title: "Credit Update Failed",
+                description: "Coupon claimed but credits couldn't be updated. Contact support.",
+                variant: "destructive",
+              });
+              return;
+            }
+
+            setAvailableCredits(newTotal);
+            setShowPricingModal(false);
+            handleRemoveCoupon();
             toast({
-              title: "Credit Update Failed",
-              description: "Coupon claimed but credits couldn't be updated. Contact support.",
-              variant: "destructive",
+              title: "Credits Added",
+              description: `Added ${result.credits} free list credits to your account.`,
             });
-            return;
           }
-
-          setAvailableCredits(newTotal);
-          setShowPricingModal(false);
-          handleRemoveCoupon();
-          toast({
-            title: "🎉 Credits Claimed!",
-            description: `Added ${result.credits} free list credits to your account!`,
-          });
+          return;
         }
+
+        const newTotal = (availableCredits || 0) + creditsToAdd;
+        const { error } = await supabase
+          .from("user_credits")
+          .update({ available_credits: newTotal })
+          .eq("user_id", user.id);
+
+        if (error) {
+          toast({
+            title: "Credit Update Failed",
+            description: "Could not add free credits. Please contact support.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        setAvailableCredits(newTotal);
+        setShowPricingModal(false);
+        handleRemoveCoupon();
+        toast({
+          title: "Credits Added",
+          description: `Added ${creditsToAdd} free list credit${creditsToAdd > 1 ? "s" : ""} to your account.`,
+        });
         return;
       }
 
