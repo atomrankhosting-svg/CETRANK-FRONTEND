@@ -57,9 +57,6 @@ const ListGenerator = () => {
     code: string;
     discount_type: "percentage" | "flat";
     discount_value: number;
-    is_free: boolean;
-    discounted_amount: number; // in paise
-    original_amount: number;   // in paise
   };
   const [couponInput, setCouponInput] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
@@ -117,7 +114,7 @@ const ListGenerator = () => {
     void loadTierPrices();
   }, []);
 
-  const handleApplyCoupon = async (tier: "basic" | "standard" | "pro") => {
+  const handleApplyCoupon = async () => {
     const code = couponInput.trim().toUpperCase();
     if (!code) {
       setCouponError("Please enter a coupon code.");
@@ -162,30 +159,22 @@ const ListGenerator = () => {
         return;
       }
 
-      // Calculate discount
-      const originalAmount = tierPrices[tier];
-      let discountedAmount: number;
-
-      if (coupon.discount_type === "percentage") {
-        discountedAmount = Math.round(originalAmount * (100 - coupon.discount_value) / 100);
-      } else {
-        discountedAmount = Math.max(0, Math.round(originalAmount - (coupon.discount_value * 100)));
-      }
-
-      const isFree = discountedAmount <= 0;
-
       setAppliedCoupon({
         code: coupon.code,
         discount_type: coupon.discount_type,
         discount_value: coupon.discount_value,
-        is_free: isFree,
-        discounted_amount: Math.max(discountedAmount, 0),
-        original_amount: originalAmount,
       });
+
+      const standardPrice = tierPrices.standard;
+      const standardDiscounted =
+        coupon.discount_type === "percentage"
+          ? Math.round(standardPrice * (100 - coupon.discount_value) / 100)
+          : Math.max(0, Math.round(standardPrice - coupon.discount_value * 100));
+      const isFreeOnStandard = standardDiscounted <= 0;
 
       toast({
         title: "Coupon Applied!",
-        description: isFree
+        description: isFreeOnStandard
           ? "This coupon makes your purchase completely free!"
           : `Discount applied: ${coupon.discount_type === "percentage" ? `${coupon.discount_value}%` : `₹${coupon.discount_value}`} off`,
       });
@@ -203,9 +192,18 @@ const ListGenerator = () => {
   };
 
   const getDisplayPrice = (tier: "basic" | "standard" | "pro") => {
-    if (!appliedCoupon) return tierPrices[tier] / 100;
-    return appliedCoupon.discounted_amount / 100;
+    const originalAmount = tierPrices[tier];
+    if (!appliedCoupon) return originalAmount / 100;
+
+    const discountedAmount =
+      appliedCoupon.discount_type === "percentage"
+        ? Math.round(originalAmount * (100 - appliedCoupon.discount_value) / 100)
+        : Math.max(0, Math.round(originalAmount - appliedCoupon.discount_value * 100));
+
+    return discountedAmount / 100;
   };
+
+  const isTierFree = (tier: "basic" | "standard" | "pro") => getDisplayPrice(tier) <= 0;
 
   const handlePayment = async (tier: "basic" | "standard" | "pro", creditsToAdd: number) => {
     if (!user) {
@@ -221,7 +219,7 @@ const ListGenerator = () => {
 
     try {
       // Handle free coupon claim (100% discount)
-      if (appliedCoupon?.is_free) {
+      if (appliedCoupon && isTierFree(tier)) {
         const result = await claimFreeCoupon(appliedCoupon.code, tier);
         if (result.success) {
           const newTotal = (availableCredits || 0) + result.credits;
@@ -588,12 +586,9 @@ const ListGenerator = () => {
                     <span className="text-sm font-medium text-green-700">
                       <span className="font-bold">{appliedCoupon.code}</span>
                       {" — "}
-                      {appliedCoupon.is_free
-                        ? "100% OFF (Free!)"
-                        : appliedCoupon.discount_type === "percentage"
-                          ? `${appliedCoupon.discount_value}% off`
-                          : `₹${appliedCoupon.discount_value} off`
-                      }
+                      {appliedCoupon.discount_type === "percentage"
+                        ? `${appliedCoupon.discount_value}% off`
+                        : `₹${appliedCoupon.discount_value} off`}
                     </span>
                   </div>
                   <button
@@ -616,12 +611,12 @@ const ListGenerator = () => {
                     placeholder="Enter coupon code"
                     className="flex-1 rounded-xl border bg-background px-4 py-2.5 text-sm font-medium placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40 transition-all"
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") handleApplyCoupon("standard");
+                      if (e.key === "Enter") handleApplyCoupon();
                     }}
                   />
                   <Button
                     variant="outline"
-                    onClick={() => handleApplyCoupon("standard")}
+                    onClick={handleApplyCoupon}
                     disabled={couponLoading || !couponInput.trim()}
                     className="rounded-xl border-primary/30 px-5 hover:bg-primary/10 hover:text-primary"
                   >
@@ -649,7 +644,7 @@ const ListGenerator = () => {
                 const originalPrice = tierPrices[tier] / 100;
                 const displayPrice = getDisplayPrice(tier);
                 const hasDiscount = appliedCoupon && displayPrice < originalPrice;
-                const isFree = appliedCoupon?.is_free;
+                const isFree = isTierFree(tier);
 
                 return (
                   <div
