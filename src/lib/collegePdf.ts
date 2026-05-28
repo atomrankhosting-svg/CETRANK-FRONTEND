@@ -259,6 +259,8 @@ const drawUserDetails = (doc: jsPDF, user: UserDetails) => {
   
   midY += 12;
   doc.text(`AI Percentile: ${formatUserNum(user.percentile_ai)}`, midX, midY);
+  midY += 12;
+  doc.text(`TFWS: ${user.is_tfws ? "Enabled" : "Off"}`, midX, midY);
   
   if (user.calculated_bounds) {
     midY += 12;

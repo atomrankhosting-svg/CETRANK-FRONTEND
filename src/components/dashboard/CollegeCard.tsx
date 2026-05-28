@@ -65,6 +65,11 @@ export function CollegeCard({ college, index, pageIndex }: CollegeCardProps) {
     college.reservation_category ||
     college.user_category ||
     "";
+  const isTfwsEntry =
+    college.is_tfws === true ||
+    String(college.category ?? college.Category ?? college.seat_type ?? college.SeatType ?? college.reservation_category ?? "")
+      .toUpperCase()
+      .includes("TFWS");
   const year = college.year || college.Year || "";
   const round = college.round || college.Round || college.round_no || "";
   const rank = college.rank || college.Rank || college.merit_no || college.merit_rank || college.cap_rank || "";
@@ -130,6 +135,11 @@ export function CollegeCard({ college, index, pageIndex }: CollegeCardProps) {
           )}
           {category && (
             <Badge variant="outline" className="text-[10px] rounded-full px-2.5 py-1">{category}</Badge>
+          )}
+          {isTfwsEntry && (
+            <Badge variant="outline" className="text-[10px] rounded-full px-2.5 py-1 border-violet-500/40 bg-violet-500/10 text-violet-700">
+              TFWS
+            </Badge>
           )}
           {year && (
             <Badge variant="outline" className="text-[10px] rounded-full px-2.5 py-1">{year}</Badge>

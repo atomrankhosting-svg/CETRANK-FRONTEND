@@ -84,6 +84,7 @@ const LANGUAGE_OPTIONS = FC_ACK_LANGUAGE_OPTIONS;
 const FC_ACK_UPLOAD_DISPLAY_LIMIT_BYTES = import.meta.env.DEV
   ? FC_ACK_MAX_FILE_SIZE_BYTES
   : FC_ACK_DEPLOYED_MAX_FILE_SIZE_BYTES;
+const MANUAL_TFWS_STORAGE_KEY = "cetrank:manual:is_tfws";
 
 const normalizeCategoryOption = (value: string) => {
   if (value === "GOBCH" || value === "LOBCH") {
@@ -193,6 +194,7 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
   const [jeePercentile, setJeePercentile] = useState<string | number>("");
   const [branches, setBranches] = useState<BranchFilters>(emptyBranches);
   const [isEws, setIsEws] = useState(false);
+  const [isTfws, setIsTfws] = useState(false);
   const [locationFlexibility, setLocationFlexibility] = useState<1 | 2 | 3>(3);
   const [capRound, setCapRound] = useState<1 | 2 | 3 | null>(null);
   const [courseType, setCourseType] = useState<"engineering" | "pharmacy">("engineering");
@@ -341,6 +343,19 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
     };
   }, [courseType]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const savedTfws = window.localStorage.getItem(MANUAL_TFWS_STORAGE_KEY);
+    if (savedTfws === "true") {
+      setIsTfws(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(MANUAL_TFWS_STORAGE_KEY, String(isTfws));
+  }, [isTfws]);
+
   /* ── Helpers ── */
   const closeOtherDropdowns = (keep: string) => {
     if (keep !== "cat") setShowCatDropdown(false);
@@ -379,6 +394,7 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
     setReligion(extractedReligion);
     setLanguage(extractedLanguage);
     setIsEws(data.is_ews ?? data.user_category === "EWS");
+    setIsTfws((data.user_category ?? "").toUpperCase() === "TFWS");
 
     if (data.course_type) {
       setCourseType(data.course_type);
@@ -448,6 +464,7 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
       percentile_ai: Number.isNaN(pAi) ? 0 : Math.min(100, Math.max(0, pAi)),
       ...branches,
       is_ews: isEws,
+      is_tfws: isTfws,
       location_flexibility: locationFlexibility,
       cap_no: capRound,
     };
@@ -470,6 +487,7 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
     setJeePercentile("");
     setBranches(emptyBranches);
     setIsEws(false);
+    setIsTfws(false);
     setLocationFlexibility(3);
     setCapRound(null);
     setCourseType("engineering");
@@ -1263,15 +1281,42 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
                 </div>
               </FilterCard>
 
-              {/* ── Row 5: EWS + Generate ── */}
+              {/* ── Row 5: EWS/TFWS + Generate ── */}
               <div className="flex flex-col gap-4 rounded-[22px] border border-border/70 bg-slate-50/95 p-4 sm:rounded-[26px] sm:p-5 md:flex-row md:items-center md:justify-between">
-                <div className="flex items-start gap-3 sm:items-center">
-                  <Switch checked={isEws} onCheckedChange={setIsEws} />
-                  <div>
-                    <Label className="text-xs text-foreground font-medium">EWS Quota</Label>
-                    <p className="text-[11px] text-muted-foreground">
-                      Include EWS seat consideration in the shortlist.
-                    </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5">
+                  <div className="flex items-start gap-3 sm:items-center">
+                    <Switch
+                      id="ews-quota-switch"
+                      checked={isEws}
+                      onCheckedChange={setIsEws}
+                      aria-labelledby="ews-quota-label"
+                      aria-describedby="ews-quota-help"
+                    />
+                    <div>
+                      <Label id="ews-quota-label" htmlFor="ews-quota-switch" className="text-xs text-foreground font-medium">
+                        EWS Quota
+                      </Label>
+                      <p id="ews-quota-help" className="text-[11px] text-muted-foreground">
+                        Include EWS seat consideration in the shortlist.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 sm:items-center">
+                    <Switch
+                      id="tfws-quota-switch"
+                      checked={isTfws}
+                      onCheckedChange={setIsTfws}
+                      aria-labelledby="tfws-quota-label"
+                      aria-describedby="tfws-quota-help"
+                    />
+                    <div>
+                      <Label id="tfws-quota-label" htmlFor="tfws-quota-switch" className="text-xs text-foreground font-medium">
+                        TFWS
+                      </Label>
+                      <p id="tfws-quota-help" className="text-[11px] text-muted-foreground">
+                        Include Tuition Fee Waiver Scheme seats in search.
+                      </p>
+                    </div>
                   </div>
                 </div>
                 <motion.div

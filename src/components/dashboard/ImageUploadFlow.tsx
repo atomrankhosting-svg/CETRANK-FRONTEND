@@ -42,6 +42,7 @@ interface ImageUploadFlowProps {
 }
 
 type FlowStage = "upload" | "review";
+const UPLOAD_TFWS_STORAGE_KEY = "cetrank:upload:is_tfws";
 
 function SelectedChip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
@@ -109,6 +110,7 @@ export function ImageUploadFlow({ onSearch, isLoading }: ImageUploadFlowProps) {
     is_electrical: boolean;
     is_other: boolean;
     location_flexibility: 1 | 2 | 3;
+    is_tfws: boolean;
   }>({
     student_name: "",
     user_gender: null,
@@ -128,6 +130,7 @@ export function ImageUploadFlow({ onSearch, isLoading }: ImageUploadFlowProps) {
     is_electrical: false,
     is_other: false,
     location_flexibility: 3,
+    is_tfws: false,
   });
 
   const [divisionSearch, setDivisionSearch] = useState("");
@@ -165,6 +168,19 @@ export function ImageUploadFlow({ onSearch, isLoading }: ImageUploadFlowProps) {
     };
     loadMetadata();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const savedTfws = window.localStorage.getItem(UPLOAD_TFWS_STORAGE_KEY);
+    if (savedTfws === "true") {
+      setFormData((prev) => ({ ...prev, is_tfws: true }));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(UPLOAD_TFWS_STORAGE_KEY, String(formData.is_tfws));
+  }, [formData.is_tfws]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -686,6 +702,52 @@ export function ImageUploadFlow({ onSearch, isLoading }: ImageUploadFlowProps) {
                               </motion.div>
                             )}
                           </AnimatePresence>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 pt-4 border-t">
+                      <Label className="text-sm font-bold flex items-center gap-2">
+                        Quota Preferences
+                      </Label>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="flex items-start gap-3 rounded-xl border bg-white px-3 py-2.5">
+                          <Switch
+                            id="upload-ews-switch"
+                            checked={formData.is_ews}
+                            onCheckedChange={(checked) =>
+                              setFormData({ ...formData, is_ews: checked })
+                            }
+                            aria-labelledby="upload-ews-label"
+                            aria-describedby="upload-ews-help"
+                          />
+                          <div>
+                            <Label id="upload-ews-label" htmlFor="upload-ews-switch" className="text-xs font-medium text-foreground">
+                              EWS Quota
+                            </Label>
+                            <p id="upload-ews-help" className="text-[11px] text-muted-foreground">
+                              Include EWS seat consideration in shortlist.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3 rounded-xl border bg-white px-3 py-2.5">
+                          <Switch
+                            id="upload-tfws-switch"
+                            checked={formData.is_tfws}
+                            onCheckedChange={(checked) =>
+                              setFormData({ ...formData, is_tfws: checked })
+                            }
+                            aria-labelledby="upload-tfws-label"
+                            aria-describedby="upload-tfws-help"
+                          />
+                          <div>
+                            <Label id="upload-tfws-label" htmlFor="upload-tfws-switch" className="text-xs font-medium text-foreground">
+                              TFWS
+                            </Label>
+                            <p id="upload-tfws-help" className="text-[11px] text-muted-foreground">
+                              Include Tuition Fee Waiver Scheme seats.
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>

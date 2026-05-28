@@ -90,6 +90,7 @@ export interface UserDetails {
   is_electronic: boolean;
   is_other: boolean;
   is_ews: boolean;
+  is_tfws?: boolean;
   calculated_bounds?: {
     min_percentile_cet: number;
     max_percentile_cet: number;
@@ -121,6 +122,7 @@ export interface CutoffRequest {
   is_mechanical?: boolean;
   is_electrical?: boolean;
   is_ews: boolean;
+  is_tfws?: boolean;
   location_flexibility?: 1 | 2 | 3;
   course_type?: "engineering" | "pharmacy";
   course_names?: string[];
@@ -161,6 +163,7 @@ export interface CollegeResult {
   status?: string;
   is_local?: boolean;
   is_cap_top?: boolean;
+  is_tfws?: boolean;
 }
 
 export interface MetadataResponse {
@@ -363,6 +366,7 @@ export async function getEligibleCutoffs(request: CutoffRequest): Promise<Cutoff
         is_electrical: request.is_electrical,
         is_tech: request.is_tech,
         is_ews: request.is_ews,
+        is_tfws: request.is_tfws,
         percentile_cet: request.percentile_cet,
         percentile_ai: request.percentile_ai,
         student_name: request.student_name,
@@ -404,6 +408,7 @@ export async function getEligibleCutoffs(request: CutoffRequest): Promise<Cutoff
         is_electrical: request.is_electrical,
         is_tech: request.is_tech,
         is_ews: request.is_ews,
+        is_tfws: request.is_tfws,
         percentile_cet: request.percentile_cet,
         percentile_ai: request.percentile_ai,
         student_name: request.student_name,
