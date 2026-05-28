@@ -20,11 +20,35 @@ interface AdminStats {
   total_lists: number;
 }
 
+const PRICE_TIERS: PricingTier[] = ["basic", "standard", "pro"];
+
+const formatTierPriceInputs = (prices: TierPrices): Record<PricingTier, string> => ({
+  basic: (prices.basic / 100).toFixed(2),
+  standard: (prices.standard / 100).toFixed(2),
+  pro: (prices.pro / 100).toFixed(2),
+});
+
+const sanitizeDecimalInput = (rawValue: string) => {
+  const cleanedValue = rawValue.replace(/[^\d.]/g, "");
+  const decimalIndex = cleanedValue.indexOf(".");
+
+  if (decimalIndex === -1) {
+    return cleanedValue;
+  }
+
+  const integerPart = cleanedValue.slice(0, decimalIndex + 1);
+  const decimalPart = cleanedValue.slice(decimalIndex + 1).replace(/\./g, "");
+  return `${integerPart}${decimalPart}`;
+};
+
 const AdminDashboard = () => {
   const { user, loading: accessLoading, allowed } = useAdminAccess();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [tierPrices, setTierPrices] = useState<TierPrices>(DEFAULT_TIER_PRICES);
+  const [tierPriceInputs, setTierPriceInputs] = useState<Record<PricingTier, string>>(
+    formatTierPriceInputs(DEFAULT_TIER_PRICES),
+  );
   const [pricingLoading, setPricingLoading] = useState(true);
   const [pricingSaving, setPricingSaving] = useState(false);
 
@@ -62,6 +86,7 @@ const AdminDashboard = () => {
       try {
         const prices = await fetchTierPrices();
         setTierPrices(prices);
+        setTierPriceInputs(formatTierPriceInputs(prices));
       } catch (error) {
         console.error("Error loading pricing:", error);
         toast({
@@ -70,6 +95,7 @@ const AdminDashboard = () => {
           variant: "destructive",
         });
         setTierPrices(DEFAULT_TIER_PRICES);
+        setTierPriceInputs(formatTierPriceInputs(DEFAULT_TIER_PRICES));
       } finally {
         setPricingLoading(false);
       }
@@ -79,8 +105,16 @@ const AdminDashboard = () => {
   }, [allowed, user]);
 
   const handlePriceChange = (tier: PricingTier, value: string) => {
-    const parsedValue = Number.parseFloat(value);
-    const priceInPaise = Number.isFinite(parsedValue) ? Math.max(0, Math.round(parsedValue * 100)) : 0;
+    const sanitizedValue = sanitizeDecimalInput(value);
+    setTierPriceInputs((previousInputs) => ({
+      ...previousInputs,
+      [tier]: sanitizedValue,
+    }));
+
+    const parsedValue = Number.parseFloat(sanitizedValue);
+    const priceInPaise = Number.isFinite(parsedValue)
+      ? Math.max(0, Math.round(parsedValue * 100))
+      : 0;
     setTierPrices((previousPrices) => ({
       ...previousPrices,
       [tier]: priceInPaise,
@@ -88,7 +122,35 @@ const AdminDashboard = () => {
   };
 
   const handleSavePricing = async () => {
-    const hasInvalidValue = (Object.values(tierPrices) as number[]).some((price) => !Number.isFinite(price) || price < 0);
+    const normalizedTierPrices = { ...tierPrices };
+
+    for (const tier of PRICE_TIERS) {
+      const rawValue = tierPriceInputs[tier].trim();
+      if (!rawValue) {
+        toast({
+          title: "Invalid Price",
+          description: "Each tier must have a price before saving.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const parsedValue = Number.parseFloat(rawValue);
+      if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+        toast({
+          title: "Invalid Price",
+          description: "Each price must be a valid non-negative number.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      normalizedTierPrices[tier] = Math.round(parsedValue * 100);
+    }
+
+    const hasInvalidValue = (Object.values(normalizedTierPrices) as number[]).some(
+      (price) => !Number.isFinite(price) || price < 0,
+    );
     if (hasInvalidValue) {
       toast({
         title: "Invalid Price",
@@ -100,7 +162,9 @@ const AdminDashboard = () => {
 
     setPricingSaving(true);
     try {
-      await saveTierPrices(tierPrices);
+      await saveTierPrices(normalizedTierPrices);
+      setTierPrices(normalizedTierPrices);
+      setTierPriceInputs(formatTierPriceInputs(normalizedTierPrices));
       toast({
         title: "Pricing Updated",
         description: "List prices have been updated successfully.",
@@ -212,20 +276,15 @@ const AdminDashboard = () => {
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
-            {([
-              ["basic", "Basic"],
-              ["standard", "Standard"],
-              ["pro", "Pro"],
-            ] as [PricingTier, string][]).map(([tierKey, tierLabel]) => (
+            {([["basic", "Basic"], ["standard", "Standard"], ["pro", "Pro"]] as [PricingTier, string][]).map(([tierKey, tierLabel]) => (
               <div key={tierKey} className="space-y-2">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {tierLabel} Price (Rs)
                 </label>
                 <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={(tierPrices[tierKey] / 100).toFixed(2)}
+                  type="text"
+                  inputMode="decimal"
+                  value={tierPriceInputs[tierKey]}
                   onChange={(event) => handlePriceChange(tierKey, event.target.value)}
                   className="w-full h-11 rounded-xl border bg-background/60 px-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />

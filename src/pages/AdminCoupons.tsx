@@ -43,6 +43,21 @@ export default function AdminCoupons() {
   const [expiresAt, setExpiresAt] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const sanitizeDecimalInput = (rawValue: string) => {
+    const cleanedValue = rawValue.replace(/[^\d.]/g, "");
+    const decimalIndex = cleanedValue.indexOf(".");
+
+    if (decimalIndex === -1) {
+      return cleanedValue;
+    }
+
+    const integerPart = cleanedValue.slice(0, decimalIndex + 1);
+    const decimalPart = cleanedValue.slice(decimalIndex + 1).replace(/\./g, "");
+    return `${integerPart}${decimalPart}`;
+  };
+
+  const sanitizeIntegerInput = (rawValue: string) => rawValue.replace(/[^\d]/g, "");
+
   const fetchCoupons = async () => {
     try {
       setLoading(true);
@@ -272,12 +287,12 @@ export default function AdminCoupons() {
                       Discount Value *
                     </label>
                     <input
-                      type="number"
+                      type="text"
                       required
-                      step="any"
+                      inputMode="decimal"
                       placeholder={discountType === "percentage" ? "e.g. 20" : "e.g. 5"}
                       value={discountValue}
-                      onChange={e => setDiscountValue(e.target.value)}
+                      onChange={e => setDiscountValue(sanitizeDecimalInput(e.target.value))}
                       className="w-full h-11 px-4 rounded-xl border bg-background/50 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -288,10 +303,11 @@ export default function AdminCoupons() {
                     Max Uses (Optional)
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     placeholder="e.g. 100 (Blank for Unlimited)"
                     value={maxUses}
-                    onChange={e => setMaxUses(e.target.value)}
+                    onChange={e => setMaxUses(sanitizeIntegerInput(e.target.value))}
                     className="w-full h-11 px-4 rounded-xl border bg-background/50 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
