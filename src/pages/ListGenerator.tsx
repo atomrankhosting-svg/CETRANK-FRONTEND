@@ -18,6 +18,7 @@ import type { UserDetails } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { X, User, FileScan, Tag, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DEFAULT_TIER_PRICES, fetchTierPrices, type TierPrices } from "@/lib/listPricing";
 
 type InputMethod = "manual" | "upload";
 
@@ -49,6 +50,7 @@ const ListGenerator = () => {
   const [availableCredits, setAvailableCredits] = useState<number | null>(null);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [paymentLoadingTier, setPaymentLoadingTier] = useState<"basic" | "standard" | "pro" | null>(null);
+  const [tierPrices, setTierPrices] = useState<TierPrices>(DEFAULT_TIER_PRICES);
 
   // Coupon state
   type CouponInfo = {
@@ -101,7 +103,19 @@ const ListGenerator = () => {
     fetchCredits();
   }, [user]);
 
-  const TIER_PRICES: Record<string, number> = { basic: 500, standard: 500, pro: 500 };
+  useEffect(() => {
+    const loadTierPrices = async () => {
+      try {
+        const prices = await fetchTierPrices();
+        setTierPrices(prices);
+      } catch (error) {
+        console.error("Failed to load tier prices:", error);
+        setTierPrices(DEFAULT_TIER_PRICES);
+      }
+    };
+
+    void loadTierPrices();
+  }, []);
 
   const handleApplyCoupon = async (tier: "basic" | "standard" | "pro") => {
     const code = couponInput.trim().toUpperCase();
@@ -149,7 +163,7 @@ const ListGenerator = () => {
       }
 
       // Calculate discount
-      const originalAmount = TIER_PRICES[tier];
+      const originalAmount = tierPrices[tier];
       let discountedAmount: number;
 
       if (coupon.discount_type === "percentage") {
@@ -189,7 +203,7 @@ const ListGenerator = () => {
   };
 
   const getDisplayPrice = (tier: "basic" | "standard" | "pro") => {
-    if (!appliedCoupon) return TIER_PRICES[tier] / 100;
+    if (!appliedCoupon) return tierPrices[tier] / 100;
     return appliedCoupon.discounted_amount / 100;
   };
 
@@ -632,7 +646,7 @@ const ListGenerator = () => {
                   pro: { label: "Pro", credits: 5, popular: false },
                 }[tier];
 
-                const originalPrice = 5;
+                const originalPrice = tierPrices[tier] / 100;
                 const displayPrice = getDisplayPrice(tier);
                 const hasDiscount = appliedCoupon && displayPrice < originalPrice;
                 const isFree = appliedCoupon?.is_free;

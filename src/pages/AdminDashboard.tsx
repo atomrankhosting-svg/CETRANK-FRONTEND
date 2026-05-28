@@ -6,6 +6,14 @@ import { useAdminAccess } from "@/hooks/use-admin-access";
 import { SiteBackdrop } from "@/components/effects/SiteBackdrop";
 import { Users, FileText, Activity, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/hooks/use-toast";
+import {
+  DEFAULT_TIER_PRICES,
+  fetchTierPrices,
+  saveTierPrices,
+  type PricingTier,
+  type TierPrices,
+} from "@/lib/listPricing";
 
 interface AdminStats {
   total_users: number;
@@ -16,6 +24,9 @@ const AdminDashboard = () => {
   const { user, loading: accessLoading, allowed } = useAdminAccess();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [tierPrices, setTierPrices] = useState<TierPrices>(DEFAULT_TIER_PRICES);
+  const [pricingLoading, setPricingLoading] = useState(true);
+  const [pricingSaving, setPricingSaving] = useState(false);
 
   useEffect(() => {
     if (!allowed || !user) {
@@ -40,7 +51,73 @@ const AdminDashboard = () => {
     void fetchStats();
   }, [user, allowed]);
 
-  if (accessLoading || statsLoading) {
+  useEffect(() => {
+    if (!allowed || !user) {
+      setPricingLoading(false);
+      return;
+    }
+
+    const loadTierPrices = async () => {
+      setPricingLoading(true);
+      try {
+        const prices = await fetchTierPrices();
+        setTierPrices(prices);
+      } catch (error) {
+        console.error("Error loading pricing:", error);
+        toast({
+          title: "Pricing Unavailable",
+          description: "Could not load list pricing. Showing default prices.",
+          variant: "destructive",
+        });
+        setTierPrices(DEFAULT_TIER_PRICES);
+      } finally {
+        setPricingLoading(false);
+      }
+    };
+
+    void loadTierPrices();
+  }, [allowed, user]);
+
+  const handlePriceChange = (tier: PricingTier, value: string) => {
+    const parsedValue = Number.parseFloat(value);
+    const priceInPaise = Number.isFinite(parsedValue) ? Math.max(0, Math.round(parsedValue * 100)) : 0;
+    setTierPrices((previousPrices) => ({
+      ...previousPrices,
+      [tier]: priceInPaise,
+    }));
+  };
+
+  const handleSavePricing = async () => {
+    const hasInvalidValue = (Object.values(tierPrices) as number[]).some((price) => !Number.isFinite(price) || price < 0);
+    if (hasInvalidValue) {
+      toast({
+        title: "Invalid Price",
+        description: "Each price must be a valid non-negative number.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setPricingSaving(true);
+    try {
+      await saveTierPrices(tierPrices);
+      toast({
+        title: "Pricing Updated",
+        description: "List prices have been updated successfully.",
+      });
+    } catch (error) {
+      console.error("Error saving pricing:", error);
+      toast({
+        title: "Save Failed",
+        description: "Could not save list prices. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setPricingSaving(false);
+    }
+  };
+
+  if (accessLoading || statsLoading || pricingLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -124,6 +201,43 @@ const AdminDashboard = () => {
               Support Tickets
             </Button>
           </Link>
+        </div>
+
+        <div className="mt-10 glass rounded-2xl border border-border/50 p-6">
+          <div className="mb-5">
+            <h2 className="text-xl font-bold text-foreground">List Pricing</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Update credit package prices shown in the list purchase modal.
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {([
+              ["basic", "Basic"],
+              ["standard", "Standard"],
+              ["pro", "Pro"],
+            ] as [PricingTier, string][]).map(([tierKey, tierLabel]) => (
+              <div key={tierKey} className="space-y-2">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {tierLabel} Price (Rs)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={(tierPrices[tierKey] / 100).toFixed(2)}
+                  onChange={(event) => handlePriceChange(tierKey, event.target.value)}
+                  className="w-full h-11 rounded-xl border bg-background/60 px-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 flex justify-end">
+            <Button onClick={handleSavePricing} disabled={pricingSaving}>
+              {pricingSaving ? "Saving..." : "Save Prices"}
+            </Button>
+          </div>
         </div>
       </main>
     </div>
