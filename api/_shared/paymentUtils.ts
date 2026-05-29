@@ -1,8 +1,19 @@
-export const TIERS = {
-  basic: { amount: 500, credits: 1 },
-  standard: { amount: 500, credits: 3 },
-  pro: { amount: 500, credits: 5 },
+export type PricingTier = "basic" | "standard" | "pro";
+
+export const DEFAULT_TIER_PRICES: Record<PricingTier, number> = {
+  basic: 500,
+  standard: 500,
+  pro: 500,
 };
+
+export const TIER_CREDITS: Record<PricingTier, number> = {
+  basic: 1,
+  standard: 3,
+  pro: 5,
+};
+
+export const isPricingTier = (tier: string): tier is PricingTier =>
+  tier === "basic" || tier === "standard" || tier === "pro";
 
 export interface Coupon {
   id: string;
@@ -21,8 +32,12 @@ export function getEnv(key: string): string {
 
 export const getSupabaseConfig = () => {
   const url = getEnv("SUPABASE_URL") || getEnv("VITE_SUPABASE_URL");
-  const key = getEnv("SUPABASE_ANON_KEY") || getEnv("VITE_SUPABASE_ANON_KEY");
-  return { url, key };
+  const serviceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const anonKey = getEnv("SUPABASE_ANON_KEY") || getEnv("VITE_SUPABASE_ANON_KEY");
+  // Server-side coupon reads/writes should use the service role key so RLS
+  // does not block validation that already succeeded in the authenticated client.
+  const key = serviceRoleKey || anonKey;
+  return { url, key, usingServiceRole: Boolean(serviceRoleKey) };
 };
 
 export const getRazorpayConfig = () => {
@@ -30,6 +45,52 @@ export const getRazorpayConfig = () => {
   const keySecret = getEnv("RAZORPAY_KEY_SECRET");
   return { keyId, keySecret };
 };
+
+export async function fetchTierPrices(): Promise<Record<PricingTier, number>> {
+  const { url, key } = getSupabaseConfig();
+
+  if (!url || !key) {
+    console.warn("Supabase config missing — using default tier prices.");
+    return { ...DEFAULT_TIER_PRICES };
+  }
+
+  const queryUrl = `${url.replace(/\/+$/, "")}/rest/v1/list_pricing?select=tier,price_in_paise`;
+  const response = await fetch(queryUrl, {
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Failed to fetch tier prices from Supabase:", errorText);
+    return { ...DEFAULT_TIER_PRICES };
+  }
+
+  const rows: { tier?: string; price_in_paise?: number }[] = await response.json();
+  const prices: Record<PricingTier, number> = { ...DEFAULT_TIER_PRICES };
+
+  for (const row of rows) {
+    const tierValue = typeof row.tier === "string" ? row.tier : "";
+    const priceValue = typeof row.price_in_paise === "number" ? row.price_in_paise : NaN;
+    if (isPricingTier(tierValue) && Number.isFinite(priceValue) && priceValue >= 0) {
+      prices[tierValue] = Math.round(priceValue);
+    }
+  }
+
+  return prices;
+}
+
+export function applyCouponToAmount(amountInPaise: number, coupon: Coupon): number {
+  const discountValue = Number(coupon.discount_value);
+
+  if (coupon.discount_type === "percentage") {
+    return Math.floor((amountInPaise * (100 - discountValue)) / 100);
+  }
+
+  return Math.max(0, Math.floor(amountInPaise - discountValue * 100));
+}
 
 export async function getAndValidateCoupon(couponCode: string): Promise<Coupon> {
   const code = couponCode.toUpperCase().trim();
@@ -55,6 +116,12 @@ export async function getAndValidateCoupon(couponCode: string): Promise<Coupon> 
 
   const coupons: Coupon[] = await response.json();
   if (!coupons || coupons.length === 0) {
+    const { usingServiceRole } = getSupabaseConfig();
+    if (!usingServiceRole) {
+      console.error(
+        "Coupon lookup returned no rows. Server is using anon key — RLS may be blocking reads. Set SUPABASE_SERVICE_ROLE_KEY or add a select policy on coupons.",
+      );
+    }
     throw new Error("Invalid coupon code.");
   }
 

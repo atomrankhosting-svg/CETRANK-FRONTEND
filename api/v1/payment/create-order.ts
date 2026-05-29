@@ -1,4 +1,12 @@
-import { TIERS, getAndValidateCoupon, getRazorpayConfig, sendJson } from "../../_shared/paymentUtils.js";
+import {
+  TIER_CREDITS,
+  applyCouponToAmount,
+  fetchTierPrices,
+  getAndValidateCoupon,
+  getRazorpayConfig,
+  isPricingTier,
+  sendJson,
+} from "../../_shared/paymentUtils.js";
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
@@ -16,29 +24,22 @@ export default async function handler(req: any, res: any) {
     const { tier: rawTier, coupon_code } = body;
     const tier = rawTier?.toLowerCase();
 
-    if (!tier || !TIERS[tier as keyof typeof TIERS]) {
+    if (!tier || !isPricingTier(tier)) {
       return sendJson(res, 400, {
         detail: "Invalid tier selected. Must be 'basic', 'standard', or 'pro'.",
       });
     }
 
-    const tierInfo = TIERS[tier as keyof typeof TIERS];
-    let amount = tierInfo.amount;
-    const creditsToAdd = tierInfo.credits;
+    const tierPrices = await fetchTierPrices();
+    let amount = tierPrices[tier];
+    const creditsToAdd = TIER_CREDITS[tier];
     let appliedCoupon: string | null = null;
 
     if (coupon_code) {
       try {
         const coupon = await getAndValidateCoupon(coupon_code);
-        const discountType = coupon.discount_type;
-        const discountValue = Number(coupon.discount_value);
         appliedCoupon = coupon.code;
-
-        if (discountType === "percentage") {
-          amount = Math.floor((amount * (100 - discountValue)) / 100);
-        } else {
-          amount = Math.max(0, Math.floor(amount - discountValue * 100));
-        }
+        amount = applyCouponToAmount(amount, coupon);
 
         if (amount <= 0) {
           return sendJson(res, 400, {
