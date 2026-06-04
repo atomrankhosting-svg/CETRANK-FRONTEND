@@ -8,6 +8,7 @@ import { motion, useInView } from "framer-motion";
 import { useEffect, useRef } from "react";
 import { SiteBackdrop } from "@/components/effects/SiteBackdrop";
 import { SiteFooter } from "@/components/SiteFooter";
+import { AppLogo } from "@/components/AppLogo";
 import { LottieAsset } from "@/components/effects/LottieAsset";
 import { useIsMobile } from "@/hooks/use-mobile";
 
