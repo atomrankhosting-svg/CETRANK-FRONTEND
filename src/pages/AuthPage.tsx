@@ -140,6 +140,15 @@ const AuthPage = () => {
             Sign Up
           </Button>
         </div>
+        {!isLogin && (
+          <p className="mb-4 text-center text-sm leading-relaxed text-muted-foreground">
+            By signing up on this website, you agree to our{" "}
+            <Link to="/terms" className="text-primary hover:underline">
+              terms and conditions
+            </Link>
+            .
+          </p>
+        )}
         <form onSubmit={handleAuth} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
