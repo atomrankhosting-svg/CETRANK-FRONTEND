@@ -617,11 +617,13 @@ export interface CreateOrderResponse {
 
 export async function createRazorpayOrder(
   tier: "basic" | "standard" | "pro",
-  couponCode?: string
+  options?: { couponCode?: string; userId?: string; userEmail?: string }
 ): Promise<CreateOrderResponse> {
   const url = new URL("/api/v1/payment/create-order", window.location.origin).toString();
   const body: Record<string, string> = { tier };
-  if (couponCode) body.coupon_code = couponCode;
+  if (options?.couponCode) body.coupon_code = options.couponCode;
+  if (options?.userId) body.user_id = options.userId;
+  if (options?.userEmail) body.user_email = options.userEmail;
 
   const res = await fetch(url, {
     method: "POST",
@@ -659,13 +661,17 @@ export async function verifyRazorpaySignature(payload: {
 
 export async function claimFreeCoupon(
   couponCode: string,
-  tier: "basic" | "standard" | "pro"
+  tier: "basic" | "standard" | "pro",
+  options?: { userId?: string; userEmail?: string }
 ): Promise<{ success: boolean; credits: number }> {
   const url = new URL("/api/v1/payment/claim-free-coupon", window.location.origin).toString();
+  const body: Record<string, string> = { coupon_code: couponCode, tier };
+  if (options?.userId) body.user_id = options.userId;
+  if (options?.userEmail) body.user_email = options.userEmail;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ coupon_code: couponCode, tier }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
@@ -674,5 +680,34 @@ export async function claimFreeCoupon(
   }
 
   return res.json();
+}
+
+export type PaymentRecordStatus =
+  | "success"
+  | "failed"
+  | "cancelled"
+  | "credits_failed";
+
+export async function recordPaymentEvent(payload: {
+  user_id: string;
+  user_email?: string;
+  status: PaymentRecordStatus;
+  tier: "basic" | "standard" | "pro";
+  amount_in_paise?: number;
+  coupon_code?: string;
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
+  error_message?: string;
+}): Promise<void> {
+  const url = new URL("/api/v1/payment/record-event", window.location.origin).toString();
+  try {
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    console.error("Failed to record payment event:", error);
+  }
 }
 

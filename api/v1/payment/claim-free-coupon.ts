@@ -4,6 +4,7 @@ import {
   fetchTierPrices,
   getAndValidateCoupon,
   incrementCouponUses,
+  insertPaymentTransaction,
   isPricingTier,
   sendJson,
 } from "../../_shared/paymentUtils.js";
@@ -21,7 +22,7 @@ export default async function handler(req: any, res: any) {
           ? req.body
           : {};
 
-    const { coupon_code, tier: rawTier } = body;
+    const { coupon_code, tier: rawTier, user_id, user_email } = body;
     const tier = rawTier?.toLowerCase();
 
     if (!tier || !isPricingTier(tier)) {
@@ -51,6 +52,18 @@ export default async function handler(req: any, res: any) {
     }
 
     await incrementCouponUses(coupon_code);
+
+    if (user_id) {
+      await insertPaymentTransaction({
+        user_id,
+        user_email,
+        status: "success",
+        tier,
+        credits: TIER_CREDITS[tier],
+        amount_in_paise: 0,
+        coupon_code: coupon.code,
+      });
+    }
 
     console.log(`Free transaction completed using coupon ${coupon_code} for tier ${tier}`);
     return sendJson(res, 200, { success: true, credits: TIER_CREDITS[tier] });

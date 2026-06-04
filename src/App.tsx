@@ -17,7 +17,9 @@ import AdminDashboard from "./pages/AdminDashboard.tsx";
 import AdminAllLists from "./pages/AdminAllLists.tsx";
 import AdminCoupons from "./pages/AdminCoupons.tsx";
 import AdminSupport from "./pages/AdminSupport.tsx";
+import AdminPayments from "./pages/AdminPayments.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import LegalPage from "./pages/LegalPage.tsx";
 // Create this page to handle Supabase Login/Signup
 // import Login from "./pages/Login.tsx"; 
 
@@ -39,6 +41,10 @@ const App = () => (
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Index />} />
+              <Route path="/terms" element={<LegalPage slug="terms" />} />
+              <Route path="/privacy" element={<LegalPage slug="privacy" />} />
+              <Route path="/refund" element={<LegalPage slug="refund" />} />
+              <Route path="/disclaimer" element={<LegalPage slug="disclaimer" />} />
               {/* <Route path="/login" element={<Login />} /> */}
               
               {/* Protected Routes */}
@@ -51,6 +57,7 @@ const App = () => (
                   <Route path="/admin/all-lists" element={<AdminAllLists />} />
                   <Route path="/admin/coupons" element={<AdminCoupons />} />
                   <Route path="/admin/support" element={<AdminSupport />} />
+                  <Route path="/admin/payments" element={<AdminPayments />} />
                 </Route>
               </Route>
 

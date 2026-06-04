@@ -6,12 +6,14 @@ import { extractApplicationFormFromGemini } from "./api/_shared/applicationFormE
 import createOrderHandler from "./api/v1/payment/create-order";
 import verifySignatureHandler from "./api/v1/payment/verify-signature";
 import claimFreeCouponHandler from "./api/v1/payment/claim-free-coupon";
+import recordPaymentEventHandler from "./api/v1/payment/record-event";
 
 const FC_ACK_ROUTE = "/api/v1/extract-fc-acknowledgement";
 const APP_FORM_ROUTE = "/api/v1/extract-application-form";
 const CREATE_ORDER_ROUTE = "/api/v1/payment/create-order";
 const VERIFY_SIGNATURE_ROUTE = "/api/v1/payment/verify-signature";
 const CLAIM_FREE_COUPON_ROUTE = "/api/v1/payment/claim-free-coupon";
+const RECORD_PAYMENT_EVENT_ROUTE = "/api/v1/payment/record-event";
 
 const jsonResponse = (res: any, status: number, body: unknown) => {
   res.statusCode = status;
@@ -138,6 +140,7 @@ export default defineConfig(({ mode }) => {
           server.middlewares.use(CREATE_ORDER_ROUTE, handleServerless(createOrderHandler));
           server.middlewares.use(VERIFY_SIGNATURE_ROUTE, handleServerless(verifySignatureHandler));
           server.middlewares.use(CLAIM_FREE_COUPON_ROUTE, handleServerless(claimFreeCouponHandler));
+          server.middlewares.use(RECORD_PAYMENT_EVENT_ROUTE, handleServerless(recordPaymentEventHandler));
         },
       },
     ],

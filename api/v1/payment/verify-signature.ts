@@ -1,5 +1,10 @@
 import crypto from "crypto";
-import { getRazorpayConfig, incrementCouponUses, sendJson } from "../../_shared/paymentUtils.js";
+import {
+  getRazorpayConfig,
+  incrementCouponUses,
+  sendJson,
+  updatePaymentByOrderId,
+} from "../../_shared/paymentUtils.js";
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
@@ -31,6 +36,11 @@ export default async function handler(req: any, res: any) {
 
     if (computedSignature !== razorpay_signature) {
       console.warn(`Signature verification failed for order: ${razorpay_order_id}`);
+      await updatePaymentByOrderId(razorpay_order_id, {
+        status: "failed",
+        razorpay_payment_id,
+        error_message: "Payment signature verification failed.",
+      });
       return sendJson(res, 400, { detail: "Payment signature verification failed. Invalid transaction." });
     }
 
@@ -54,6 +64,11 @@ export default async function handler(req: any, res: any) {
     } catch (e) {
       console.error("Failed to fetch order details to verify coupon increment:", e);
     }
+
+    await updatePaymentByOrderId(razorpay_order_id, {
+      status: "success",
+      razorpay_payment_id,
+    });
 
     return sendJson(res, 200, { status: "verified" });
   } catch (error: any) {

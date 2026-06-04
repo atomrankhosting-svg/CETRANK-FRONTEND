@@ -194,6 +194,141 @@ export async function incrementCouponUses(couponCode: string): Promise<void> {
   }
 }
 
+export type PaymentStatus =
+  | "pending"
+  | "success"
+  | "failed"
+  | "cancelled"
+  | "credits_failed";
+
+export interface PaymentTransactionInput {
+  user_id: string;
+  user_email?: string | null;
+  status: PaymentStatus;
+  tier: PricingTier;
+  credits: number;
+  amount_in_paise: number;
+  currency?: string;
+  coupon_code?: string | null;
+  razorpay_order_id?: string | null;
+  razorpay_payment_id?: string | null;
+  error_message?: string | null;
+}
+
+export interface PaymentTransaction extends PaymentTransactionInput {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+}
+
+const supabaseRestHeaders = (key: string, prefer?: string) => ({
+  apikey: key,
+  Authorization: `Bearer ${key}`,
+  "Content-Type": "application/json",
+  ...(prefer ? { Prefer: prefer } : {}),
+});
+
+export async function insertPaymentTransaction(
+  input: PaymentTransactionInput,
+): Promise<string | null> {
+  const { url, key } = getSupabaseConfig();
+  if (!url || !key) {
+    console.error("Supabase config missing — cannot record payment transaction.");
+    return null;
+  }
+
+  const now = new Date().toISOString();
+  const payload = {
+    user_id: input.user_id,
+    user_email: input.user_email ?? null,
+    status: input.status,
+    tier: input.tier,
+    credits: input.credits,
+    amount_in_paise: input.amount_in_paise,
+    currency: input.currency ?? "INR",
+    coupon_code: input.coupon_code ?? null,
+    razorpay_order_id: input.razorpay_order_id ?? null,
+    razorpay_payment_id: input.razorpay_payment_id ?? null,
+    error_message: input.error_message ?? null,
+    updated_at: now,
+    completed_at: input.status === "success" ? now : null,
+  };
+
+  try {
+    const response = await fetch(`${url.replace(/\/+$/, "")}/rest/v1/payment_transactions`, {
+      method: "POST",
+      headers: supabaseRestHeaders(key, "return=representation"),
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Failed to insert payment transaction:", errorText);
+      return null;
+    }
+
+    const rows: { id?: string }[] = await response.json();
+    return rows[0]?.id ?? null;
+  } catch (error) {
+    console.error("Failed to insert payment transaction:", error);
+    return null;
+  }
+}
+
+export async function updatePaymentByOrderId(
+  razorpayOrderId: string,
+  updates: Partial<
+    Pick<
+      PaymentTransactionInput,
+      | "status"
+      | "razorpay_payment_id"
+      | "error_message"
+      | "coupon_code"
+      | "amount_in_paise"
+      | "credits"
+    >
+  >,
+): Promise<boolean> {
+  const { url, key } = getSupabaseConfig();
+  if (!url || !key) {
+    console.error("Supabase config missing — cannot update payment transaction.");
+    return false;
+  }
+
+  const now = new Date().toISOString();
+  const payload: Record<string, unknown> = {
+    ...updates,
+    updated_at: now,
+  };
+
+  if (updates.status === "success" || updates.status === "failed" || updates.status === "cancelled") {
+    payload.completed_at = now;
+  }
+
+  try {
+    const response = await fetch(
+      `${url.replace(/\/+$/, "")}/rest/v1/payment_transactions?razorpay_order_id=eq.${encodeURIComponent(razorpayOrderId)}`,
+      {
+        method: "PATCH",
+        headers: supabaseRestHeaders(key),
+        body: JSON.stringify(payload),
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Failed to update payment for order ${razorpayOrderId}:`, errorText);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error(`Failed to update payment for order ${razorpayOrderId}:`, error);
+    return false;
+  }
+}
+
 export function sendJson(res: any, status: number, body: unknown) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json");

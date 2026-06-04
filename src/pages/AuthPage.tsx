@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AuthError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { LegalFooterLinks } from "@/components/SiteFooter";
 import { toast } from "sonner";
 
 type AuthMode = "login" | "signup";
@@ -18,6 +20,7 @@ const AuthPage = () => {
     searchParams.get("mode") === "signup" ? "signup" : "login",
   );
   const [loading, setLoading] = useState(false);
+  const [acceptedPolicies, setAcceptedPolicies] = useState(false);
 
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -29,6 +32,9 @@ const AuthPage = () => {
   useEffect(() => {
     const nextMode = searchParams.get("mode") === "signup" ? "signup" : "login";
     setMode(nextMode);
+    if (nextMode === "login") {
+      setAcceptedPolicies(false);
+    }
   }, [searchParams]);
 
   useEffect(() => {
@@ -42,7 +48,15 @@ const AuthPage = () => {
     setSearchParams(nextMode === "signup" ? { mode: "signup" } : {}, { replace: true });
   };
 
+  const requirePolicyAcceptance = () => {
+    if (isLogin || acceptedPolicies) return true;
+    toast.error("Please accept the Terms, Privacy Policy, and Disclaimer to continue.");
+    return false;
+  };
+
   const handleGoogleSignIn = async () => {
+    if (!requirePolicyAcceptance()) return;
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -58,6 +72,8 @@ const AuthPage = () => {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!requirePolicyAcceptance()) return;
+
     setLoading(true);
 
     try {
@@ -79,6 +95,9 @@ const AuthPage = () => {
       const { data, error } = await supabase.auth.signUp({
         email: normalizedEmail,
         password,
+        options: {
+          data: { policies_accepted_at: new Date().toISOString() },
+        },
       });
 
       if (error) throw error;
@@ -142,7 +161,37 @@ const AuthPage = () => {
               required
             />
           </div>
-          <Button type="submit" className="w-full" disabled={loading}>
+          {!isLogin && (
+            <div className="flex items-start gap-3 rounded-2xl border border-border/70 bg-muted/30 p-3">
+              <Checkbox
+                id="accept-policies"
+                checked={acceptedPolicies}
+                onCheckedChange={(checked) => setAcceptedPolicies(checked === true)}
+                className="mt-0.5"
+              />
+              <Label htmlFor="accept-policies" className="cursor-pointer text-sm font-normal leading-snug text-muted-foreground">
+                I agree to the{" "}
+                <Link to="/terms" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+                  Terms
+                </Link>
+                ,{" "}
+                <Link to="/privacy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+                  Privacy Policy
+                </Link>
+                , and{" "}
+                <Link to="/disclaimer" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+                  Disclaimer
+                </Link>
+                .
+              </Label>
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={loading || (!isLogin && !acceptedPolicies)}
+          >
             {loading ? "Processing..." : isLogin ? "Sign In" : "Sign Up"}
           </Button>
         </form>
@@ -158,7 +207,13 @@ const AuthPage = () => {
               </span>
             </div>
           </div>
-          <Button variant="outline" type="button" onClick={handleGoogleSignIn} className="h-11">
+          <Button
+            variant="outline"
+            type="button"
+            onClick={handleGoogleSignIn}
+            className="h-11"
+            disabled={!isLogin && !acceptedPolicies}
+          >
             <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
               <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
@@ -179,6 +234,8 @@ const AuthPage = () => {
             {isLogin ? "Sign up" : "Sign in"}
           </button>
         </p>
+
+        <LegalFooterLinks className="mt-6" />
       </div>
     </div>
   );

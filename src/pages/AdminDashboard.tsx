@@ -265,6 +265,15 @@ const AdminDashboard = () => {
               Support Tickets
             </Button>
           </Link>
+          <Link to="/admin/payments">
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-14 w-full rounded-full border-border/80 px-8 text-base hover:bg-muted/50 sm:w-auto"
+            >
+              Payment Records
+            </Button>
+          </Link>
         </div>
 
         <div className="mt-10 glass rounded-2xl border border-border/50 p-6">

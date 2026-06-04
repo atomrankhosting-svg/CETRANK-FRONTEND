@@ -4,6 +4,7 @@ import {
   fetchTierPrices,
   getAndValidateCoupon,
   getRazorpayConfig,
+  insertPaymentTransaction,
   isPricingTier,
   sendJson,
 } from "../../_shared/paymentUtils.js";
@@ -21,7 +22,7 @@ export default async function handler(req: any, res: any) {
           ? req.body
           : {};
 
-    const { tier: rawTier, coupon_code } = body;
+    const { tier: rawTier, coupon_code, user_id, user_email } = body;
     const tier = rawTier?.toLowerCase();
 
     if (!tier || !isPricingTier(tier)) {
@@ -87,6 +88,20 @@ export default async function handler(req: any, res: any) {
 
     const orderData: any = await response.json();
     console.log(`Razorpay order created successfully: ${orderData.id}`);
+
+    if (user_id) {
+      await insertPaymentTransaction({
+        user_id,
+        user_email,
+        status: "pending",
+        tier,
+        credits: creditsToAdd,
+        amount_in_paise: amount,
+        currency: orderData.currency ?? "INR",
+        coupon_code: appliedCoupon,
+        razorpay_order_id: orderData.id,
+      });
+    }
 
     return sendJson(res, 200, {
       id: orderData.id,

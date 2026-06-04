@@ -6,8 +6,8 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion, useInView } from "framer-motion";
 import { useEffect, useRef } from "react";
-import { AppLogo } from "@/components/AppLogo";
 import { SiteBackdrop } from "@/components/effects/SiteBackdrop";
+import { SiteFooter } from "@/components/SiteFooter";
 import { LottieAsset } from "@/components/effects/LottieAsset";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -79,36 +79,6 @@ function CTASection() {
   );
 }
 
-function Footer() {
-  return (
-    <footer className="relative px-4 pb-10 pt-6">
-      <div className="mx-auto max-w-6xl rounded-[32px] border border-border/70 bg-white/80 px-6 py-8 backdrop-blur-xl md:px-8">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <AppLogo imageClassName="h-10 w-10 rounded-[18px]" />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-5 text-sm text-muted-foreground">
-            <Link to="/#features" className="transition-colors hover:text-foreground">
-              Features
-            </Link>
-            <Link to="/#how-it-works" className="transition-colors hover:text-foreground">
-              How It Works
-            </Link>
-            <Link to="/list-generator" className="transition-colors hover:text-foreground">
-              List Generator
-            </Link>
-          </div>
-
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            © {new Date().getFullYear()} CETRANK.IN
-          </p>
-        </div>
-      </div>
-    </footer>
-  );
-}
-
 const Index = () => {
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -138,7 +108,7 @@ const Index = () => {
         <ScrollHero />
         <HowItWorks />
         <CTASection />
-        <Footer />
+        <SiteFooter />
       </div>
     </div>
   );

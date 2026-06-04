@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { FilterBar } from "@/components/dashboard/FilterBar";
 import { ImageUploadFlow } from "@/components/dashboard/ImageUploadFlow";
 import { CollegeResults } from "@/components/dashboard/CollegeResults";
 import { AISidebar } from "@/components/dashboard/AISidebar";
-import { ApiError, getEligibleCutoffs, createRazorpayOrder, verifyRazorpaySignature, claimFreeCoupon } from "@/lib/api";
+import { ApiError, getEligibleCutoffs, createRazorpayOrder, verifyRazorpaySignature, claimFreeCoupon, recordPaymentEvent } from "@/lib/api";
 import type { CollegeResult, CutoffRequest } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -225,7 +226,10 @@ const ListGenerator = () => {
       // Skip Razorpay for free checkout (zero-priced tier or 100% discount coupon)
       if (payableAmountInPaise <= 0) {
         if (appliedCoupon) {
-          const result = await claimFreeCoupon(appliedCoupon.code, tier);
+          const result = await claimFreeCoupon(appliedCoupon.code, tier, {
+            userId: user.id,
+            userEmail: user.email ?? undefined,
+          });
           if (result.success) {
             const newTotal = (availableCredits || 0) + result.credits;
             const { error } = await supabase
@@ -271,6 +275,14 @@ const ListGenerator = () => {
         setAvailableCredits(newTotal);
         setShowPricingModal(false);
         handleRemoveCoupon();
+        await recordPaymentEvent({
+          user_id: user.id,
+          user_email: user.email ?? undefined,
+          status: "success",
+          tier,
+          amount_in_paise: 0,
+          coupon_code: appliedCoupon?.code,
+        });
         toast({
           title: "Credits Added",
           description: `Added ${creditsToAdd} free list credit${creditsToAdd > 1 ? "s" : ""} to your account.`,
@@ -279,7 +291,11 @@ const ListGenerator = () => {
       }
 
       // 1. Create Razorpay order via backend api (with coupon if applied)
-      const order = await createRazorpayOrder(tier, appliedCoupon?.code);
+      const order = await createRazorpayOrder(tier, {
+        couponCode: appliedCoupon?.code,
+        userId: user.id,
+        userEmail: user.email ?? undefined,
+      });
 
       // 2. Configure Razorpay Checkout options
       const options = {
@@ -307,6 +323,17 @@ const ListGenerator = () => {
 
             if (error) {
               console.error("Failed to update credits in database:", error);
+              await recordPaymentEvent({
+                user_id: user.id,
+                user_email: user.email ?? undefined,
+                status: "credits_failed",
+                tier,
+                amount_in_paise: order.amount,
+                coupon_code: appliedCoupon?.code,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                error_message: error.message,
+              });
               toast({
                 title: "Credit Update Failed",
                 description: "Payment verified successfully, but we couldn't update your credits. Please contact support.",
@@ -324,6 +351,17 @@ const ListGenerator = () => {
             });
           } catch (err) {
             console.error("Signature verification failed:", err);
+            await recordPaymentEvent({
+              user_id: user.id,
+              user_email: user.email ?? undefined,
+              status: "failed",
+              tier,
+              amount_in_paise: order.amount,
+              coupon_code: appliedCoupon?.code,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              error_message: err instanceof Error ? err.message : "Verification failed",
+            });
             toast({
               title: "Verification Failed",
               description: "Your payment verification failed. If money was debited, please contact support.",
@@ -340,6 +378,15 @@ const ListGenerator = () => {
         },
         modal: {
           ondismiss: function () {
+            void recordPaymentEvent({
+              user_id: user.id,
+              user_email: user.email ?? undefined,
+              status: "cancelled",
+              tier,
+              amount_in_paise: order.amount,
+              coupon_code: appliedCoupon?.code,
+              razorpay_order_id: order.id,
+            });
             toast({
               title: "Payment Cancelled",
               description: "The payment process was cancelled.",
@@ -719,6 +766,18 @@ const ListGenerator = () => {
                 );
               })}
             </div>
+
+            <p className="mt-6 text-center text-xs text-muted-foreground">
+              By purchasing you agree to our{" "}
+              <Link to="/terms" className="text-primary hover:underline">
+                Terms
+              </Link>{" "}
+              and{" "}
+              <Link to="/refund" className="text-primary hover:underline">
+                Refund Policy
+              </Link>
+              .
+            </p>
           </div>
         </div>
       )}
