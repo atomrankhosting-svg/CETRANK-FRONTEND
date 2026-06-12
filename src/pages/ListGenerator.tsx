@@ -36,6 +36,9 @@ const createInitialGeneratedListState = (): GeneratedListState => ({
   lastFilters: null,
 });
 
+/** Set to true to re-enable the FC Receipt AI autofill tab */
+const SHOW_FC_RECEIPT_AUTOFILL = false;
+
 const ListGenerator = () => {
   const isMobile = useIsMobile();
   const { user } = useAuth();
@@ -570,41 +573,43 @@ const ListGenerator = () => {
 
         <div className="space-y-6">
           {/* Input Method Selector */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-8 p-1 bg-muted/30 rounded-[32px] border w-fit mx-auto sm:mx-0">
-            <button
-              onClick={() => setInputMethod("manual")}
-              className={cn(
-                "flex items-center gap-2 px-6 py-3 rounded-[28px] transition-all text-sm font-semibold",
-                inputMethod === "manual" 
-                  ? "bg-white shadow-sm text-primary border border-primary/10" 
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <User className="w-4 h-4" />
-              Manual Entry
-            </button>
-            <button
-              onClick={() => setInputMethod("upload")}
-              className={cn(
-                "flex items-center gap-2 px-6 py-3 rounded-[28px] transition-all text-sm font-semibold relative overflow-hidden group",
-                inputMethod === "upload" 
-                  ? "bg-white shadow-sm text-primary border border-primary/10" 
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <FileScan className="w-4 h-4" />
-              <span>FC Receipt Autofill</span>
-              {inputMethod === "upload" && (
-                <motion.div 
-                  layoutId="active-glow"
-                  className="absolute inset-0 bg-primary/5 pointer-events-none"
-                />
-              )}
-            </button>
-          </div>
+          {SHOW_FC_RECEIPT_AUTOFILL && (
+            <div className="flex flex-col sm:flex-row gap-4 mb-8 p-1 bg-muted/30 rounded-[32px] border w-fit mx-auto sm:mx-0">
+              <button
+                onClick={() => setInputMethod("manual")}
+                className={cn(
+                  "flex items-center gap-2 px-6 py-3 rounded-[28px] transition-all text-sm font-semibold",
+                  inputMethod === "manual" 
+                    ? "bg-white shadow-sm text-primary border border-primary/10" 
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <User className="w-4 h-4" />
+                Manual Entry
+              </button>
+              <button
+                onClick={() => setInputMethod("upload")}
+                className={cn(
+                  "flex items-center gap-2 px-6 py-3 rounded-[28px] transition-all text-sm font-semibold relative overflow-hidden group",
+                  inputMethod === "upload" 
+                    ? "bg-white shadow-sm text-primary border border-primary/10" 
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <FileScan className="w-4 h-4" />
+                <span>FC Receipt Autofill</span>
+                {inputMethod === "upload" && (
+                  <motion.div 
+                    layoutId="active-glow"
+                    className="absolute inset-0 bg-primary/5 pointer-events-none"
+                  />
+                )}
+              </button>
+            </div>
+          )}
 
           <AnimatePresence mode="wait">
-            {inputMethod === "manual" ? (
+            {inputMethod === "manual" || !SHOW_FC_RECEIPT_AUTOFILL ? (
               <motion.div
                 key="manual-form"
                 initial={{ opacity: 0, y: 10 }}
