@@ -4,7 +4,6 @@ import { Navbar } from "@/components/Navbar";
 import { FilterBar } from "@/components/dashboard/FilterBar";
 import { ImageUploadFlow } from "@/components/dashboard/ImageUploadFlow";
 import { CollegeResults } from "@/components/dashboard/CollegeResults";
-import { AISidebar } from "@/components/dashboard/AISidebar";
 import { ApiError, getEligibleCutoffs, createRazorpayOrder, verifyRazorpaySignature, claimFreeCoupon, recordPaymentEvent } from "@/lib/api";
 import type { CollegeResult, CutoffRequest } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
@@ -639,8 +638,6 @@ const ListGenerator = () => {
           </motion.div>
         </div>
       </div>
-
-      <AISidebar />
 
       {showPricingModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
