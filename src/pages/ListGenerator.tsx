@@ -553,8 +553,17 @@ const ListGenerator = () => {
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h1 className="text-2xl font-bold sm:text-3xl">Admission Engine 2026</h1>
             {user && (
-              <div className="w-fit rounded-full bg-primary/10 px-4 py-2 text-sm font-medium text-primary">
-                Credits Remaining: {availableCredits !== null ? availableCredits : "..."}
+              <div className="flex w-fit flex-wrap items-center gap-2">
+                <div className="rounded-full bg-primary/10 px-4 py-2 text-sm font-medium text-primary">
+                  Credits Remaining: {availableCredits !== null ? availableCredits : "..."}
+                </div>
+                <Button
+                  size="sm"
+                  className="rounded-full px-4"
+                  onClick={() => setShowPricingModal(true)}
+                >
+                  Buy Credits
+                </Button>
               </div>
             )}
           </div>
