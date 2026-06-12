@@ -420,7 +420,7 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
       toast({
         title: "Details autofilled",
         description:
-          "Review the extracted data and manually complete preferred city, division, branch filters, and location flexibility.",
+          "Review the extracted data and manually complete preferred city, preferred division, branch filters, and location flexibility.",
       });
     } catch (error) {
       console.error("[FilterBar] FC acknowledgement extraction failed:", error);
@@ -973,7 +973,7 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
                 <div ref={divisionRef} className="relative">
                   <FilterCard>
                     <Label className="mb-2 flex items-center gap-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      <span>Division</span>
+                      <span>Preferred Division</span>
                       <Popover>
                         <PopoverTrigger asChild>
                           <button

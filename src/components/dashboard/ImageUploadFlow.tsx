@@ -576,7 +576,7 @@ export function ImageUploadFlow({ onSearch, isLoading }: ImageUploadFlowProps) {
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2 relative" ref={divisionDropdownRef}>
-                          <Label className="text-[10px] uppercase text-muted-foreground font-bold">Preferred Divisions</Label>
+                          <Label className="text-[10px] uppercase text-muted-foreground font-bold">Preferred Division</Label>
                           <div 
                             className="flex flex-wrap gap-1.5 p-3 rounded-2xl border bg-white min-h-[44px] cursor-pointer hover:border-primary/50 transition-colors relative"
                             onClick={() => setShowDivisionDropdown(!showDivisionDropdown)}
