@@ -229,8 +229,6 @@ function MobileHeroCard({
     return () => observer.disconnect();
   }, []);
 
-  const isCTASection = "isCTA" in section && section.isCTA;
-
   return (
     <div
       ref={cardRef}
@@ -253,19 +251,6 @@ function MobileHeroCard({
           </p>
         )}
 
-        <div className="mt-6 flex justify-center">
-          {isCTASection ? (
-            <Link to="/list-generator" className="w-full sm:w-auto">
-              <Button
-                size="lg"
-                className="group h-14 w-full rounded-2xl px-8 text-base glow-primary sm:w-auto"
-              >
-                Launch List Generator
-                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </Button>
-            </Link>
-          ) : null}
-        </div>
       </div>
 
       <div className="mt-8 rounded-[24px] border border-border/70 bg-white/80 p-4 shadow-[0_12px_36px_rgba(148,163,184,0.14)] sm:rounded-[28px]">
@@ -443,6 +428,17 @@ export function ScrollHero() {
   if (isMobile) {
     return (
       <div ref={wrapperRef} className="mobile-hero-stack">
+        <div className="px-4 pb-4 pt-1">
+          <Link to="/list-generator" className="block">
+            <Button
+              size="lg"
+              className="group h-14 w-full rounded-2xl px-6 text-base glow-primary"
+            >
+              Launch List Generator
+              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+            </Button>
+          </Link>
+        </div>
         {SECTIONS.map((section) => (
           <MobileHeroCard key={section.id} section={section} />
         ))}
