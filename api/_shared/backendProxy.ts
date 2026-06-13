@@ -1,5 +1,14 @@
 /** Server-side upstream URL and headers for the Lambda API (origin guard). */
 
+const DEFAULT_API_GATEWAY_STAGE = "prod";
+
+/**
+ * Resolve execute-api base URL including the HTTP API stage when required.
+ * Examples:
+ *   API_GATEWAY_URL=https://xxx.execute-api.../amazonaws.com + stage prod
+ *     -> https://xxx.../prod
+ *   API_GATEWAY_URL=https://xxx.../prod (unchanged)
+ */
 export function getBackendBaseUrl(): string {
   const configured =
     process.env.API_GATEWAY_URL ||
@@ -17,7 +26,19 @@ export function getBackendBaseUrl(): string {
     );
   }
 
-  return trimmed;
+  const stage = (process.env.API_GATEWAY_STAGE || DEFAULT_API_GATEWAY_STAGE)
+    .trim()
+    .replace(/^\/+|\/+$/g, "");
+
+  if (!stage || stage === "$default") {
+    return trimmed;
+  }
+
+  if (trimmed.endsWith(`/${stage}`)) {
+    return trimmed;
+  }
+
+  return `${trimmed}/${stage}`;
 }
 
 export function getOriginGuardHeaders(req: {

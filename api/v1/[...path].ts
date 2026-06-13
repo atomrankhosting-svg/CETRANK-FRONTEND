@@ -111,6 +111,10 @@ export default async function handler(req: any, res: any) {
       body: getForwardBody(req),
     });
 
+    if (response.status === 404) {
+      console.error("[api/v1 proxy] Upstream 404:", targetUrl.toString());
+    }
+
     res.statusCode = response.status;
 
     const contentType = response.headers.get("content-type");
