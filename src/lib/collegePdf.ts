@@ -361,6 +361,14 @@ const drawRows = (doc: jsPDF, tableY: number, pageRows: TableRow[]) => {
   }
 };
 
+const drawFooter = (doc: jsPDF, pageIndex: number, totalPages: number) => {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(156, 163, 175);
+  doc.text("AI = All India", PAGE_WIDTH / 2, PAGE_HEIGHT - 32, { align: "center" });
+  doc.text(`Page ${pageIndex + 1} of ${totalPages}`, PAGE_WIDTH / 2, PAGE_HEIGHT - 20, { align: "center" });
+};
+
 export const downloadCollegeListPdf = async ({
   results,
   userDetails,
@@ -412,11 +420,8 @@ export const downloadCollegeListPdf = async ({
     drawHeader(doc, currentTableY, tableHeight);
     drawRows(doc, currentTableY, pageRows);
     drawGrid(doc, currentTableY, pageRows);
-    
-    // Page Number
-    doc.setFontSize(8);
-    doc.setTextColor(156, 163, 175);
-    doc.text(`Page ${pageIndex + 1} of ${pages.length}`, PAGE_WIDTH / 2, PAGE_HEIGHT - 20, { align: "center" });
+
+    drawFooter(doc, pageIndex, pages.length);
   });
 
   const nameSlug = userDetails?.student_name 
