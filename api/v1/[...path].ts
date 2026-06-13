@@ -1,12 +1,9 @@
+import { getBackendBaseUrl, getOriginGuardHeaders } from "../_shared/backendProxy.js";
+
 const sendJson = (res: any, status: number, body: unknown) => {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json");
   res.end(JSON.stringify(body));
-};
-
-const getBackendBaseUrl = () => {
-  const configuredUrl = process.env.BACKEND_URL || process.env.VITE_API_BASE_URL;
-  return configuredUrl?.replace(/\/+$/, "") ?? "";
 };
 
 const getRequestPath = (value: unknown) => {
@@ -38,9 +35,17 @@ const getForwardBody = (req: any) => {
 };
 
 export default async function handler(req: any, res: any) {
-  const backendBaseUrl = getBackendBaseUrl();
+  let backendBaseUrl: string;
+  try {
+    backendBaseUrl = getBackendBaseUrl();
+  } catch (error) {
+    return sendJson(res, 500, {
+      detail: error instanceof Error ? error.message : "Backend URL is not configured.",
+    });
+  }
+
   if (!backendBaseUrl) {
-    return sendJson(res, 500, { detail: "BACKEND_URL is not configured." });
+    return sendJson(res, 500, { detail: "API_GATEWAY_URL or BACKEND_URL is not configured." });
   }
 
   const pathSegments = getRequestPath(req.query?.path);
@@ -69,11 +74,21 @@ export default async function handler(req: any, res: any) {
     }
   }
 
+  let originHeaders: Record<string, string>;
+  try {
+    originHeaders = getOriginGuardHeaders(req);
+  } catch (error) {
+    return sendJson(res, 500, {
+      detail: error instanceof Error ? error.message : "Origin guard is not configured.",
+    });
+  }
+
   try {
     const response = await fetch(targetUrl, {
       method: req.method,
       headers: {
         Accept: req.headers?.accept || "application/json",
+        ...originHeaders,
         ...(req.headers?.["content-type"]
           ? { "Content-Type": req.headers["content-type"] }
           : {}),
