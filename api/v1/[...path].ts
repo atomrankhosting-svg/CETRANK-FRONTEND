@@ -18,6 +18,19 @@ const getRequestPath = (value: unknown) => {
   return [];
 };
 
+const getUpstreamPath = (req: any): string => {
+  const fromQuery = getRequestPath(req.query?.path);
+  if (fromQuery.length > 0) {
+    return fromQuery.join("/");
+  }
+
+  // Vercel sometimes omits catch-all query params; parse from the URL instead.
+  const rawUrl = typeof req.url === "string" ? req.url : "";
+  const pathname = rawUrl.split("?")[0] || "";
+  const match = pathname.match(/\/api\/v1\/(.+)$/);
+  return match?.[1] ?? "";
+};
+
 const getForwardBody = (req: any) => {
   if (req.method === "GET" || req.method === "HEAD") {
     return undefined;
@@ -48,8 +61,7 @@ export default async function handler(req: any, res: any) {
     return sendJson(res, 500, { detail: "API_GATEWAY_URL or BACKEND_URL is not configured." });
   }
 
-  const pathSegments = getRequestPath(req.query?.path);
-  const upstreamPath = pathSegments.join("/");
+  const upstreamPath = getUpstreamPath(req);
   if (!upstreamPath) {
     return sendJson(res, 400, { detail: "Missing upstream API path." });
   }
