@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { X, User, FileScan, Tag, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DEFAULT_TIER_PRICES, fetchTierPrices, type TierPrices } from "@/lib/listPricing";
+import { BROADEN_FILTERS_ADVICE, MIN_LIST_OPTIONS_FOR_CREDIT } from "@/lib/listConstants";
 
 type InputMethod = "manual" | "upload";
 
@@ -27,6 +28,7 @@ type GeneratedListState = {
   userDetails: UserDetails | null;
   hasSearched: boolean;
   lastFilters: CutoffRequest | null;
+  creditNotCharged: boolean;
 };
 
 const createInitialGeneratedListState = (): GeneratedListState => ({
@@ -34,6 +36,7 @@ const createInitialGeneratedListState = (): GeneratedListState => ({
   userDetails: null,
   hasSearched: false,
   lastFilters: null,
+  creditNotCharged: false,
 });
 
 /** Set to true to re-enable the FC Receipt AI autofill tab */
@@ -433,12 +436,16 @@ const ListGenerator = () => {
       const apiResponse = await getEligibleCutoffs(filters);
       const { results: list, user_details } = apiResponse;
       
+      const belowMinimumForCredit =
+        list.length > 0 && list.length < MIN_LIST_OPTIONS_FOR_CREDIT;
+
       setGeneratedLists((currentLists) => ({
         ...currentLists,
         [searchMethod]: {
           ...currentLists[searchMethod],
           results: list,
           userDetails: user_details,
+          creditNotCharged: belowMinimumForCredit,
         },
       }));
 
@@ -446,6 +453,16 @@ const ListGenerator = () => {
         toast({
           title: "No results",
           description: "Try adjusting your filters for more options.",
+        });
+        return;
+      }
+
+      if (belowMinimumForCredit) {
+        toast({
+          title: `Only ${list.length} option${list.length !== 1 ? "s" : ""} found`,
+          description: user
+            ? `No credit was used. ${BROADEN_FILTERS_ADVICE}`
+            : BROADEN_FILTERS_ADVICE,
         });
         return;
       }
@@ -511,6 +528,7 @@ const ListGenerator = () => {
         [searchMethod]: {
           ...currentLists[searchMethod],
           results: [],
+          creditNotCharged: false,
         },
       }));
     } finally {
@@ -637,6 +655,7 @@ const ListGenerator = () => {
               results={activeGeneratedList.results}
               isLoading={isCurrentMethodLoading}
               hasSearched={activeGeneratedList.hasSearched}
+              creditNotCharged={activeGeneratedList.creditNotCharged}
               onDownloadPdf={handleDownloadPdf}
               isDownloadingPdf={isCurrentMethodDownloading}
             />

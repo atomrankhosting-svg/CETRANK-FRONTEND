@@ -5,11 +5,13 @@ import { AlertCircle, ChevronLeft, ChevronRight, Download, GraduationCap, Search
 import type { CollegeResult } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
+import { BROADEN_FILTERS_ADVICE, MIN_LIST_OPTIONS_FOR_CREDIT } from "@/lib/listConstants";
 
 interface CollegeResultsProps {
   results: CollegeResult[];
   isLoading: boolean;
   hasSearched: boolean;
+  creditNotCharged?: boolean;
   onDownloadPdf: () => void | Promise<void>;
   isDownloadingPdf: boolean;
 }
@@ -18,6 +20,7 @@ export function CollegeResults({
   results,
   isLoading,
   hasSearched,
+  creditNotCharged = false,
   onDownloadPdf,
   isDownloadingPdf,
 }: CollegeResultsProps) {
@@ -114,14 +117,18 @@ export function CollegeResults({
             </span>
           </div>
 
-          {results.length > 0 && results.length < 40 && (
-            <motion.div 
+          {results.length > 0 && results.length < MIN_LIST_OPTIONS_FOR_CREDIT && (
+            <motion.div
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               className="flex items-start gap-1.5 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] font-medium text-amber-700 dark:text-amber-400 sm:items-center sm:rounded-full sm:py-1"
             >
-              <AlertCircle className="w-3.5 h-3.5" />
-              <span>Pro Tip: Try adding more cities or branches for more options</span>
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                {creditNotCharged
+                  ? `Below ${MIN_LIST_OPTIONS_FOR_CREDIT} options — no credit used. ${BROADEN_FILTERS_ADVICE}`
+                  : BROADEN_FILTERS_ADVICE}
+              </span>
             </motion.div>
           )}
         </div>
