@@ -20,6 +20,7 @@ import AdminSupport from "./pages/AdminSupport.tsx";
 import AdminPayments from "./pages/AdminPayments.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import LegalPage from "./pages/LegalPage.tsx";
+import { GoogleAnalytics } from "./components/GoogleAnalytics";
 // Create this page to handle Supabase Login/Signup
 // import Login from "./pages/Login.tsx"; 
 
@@ -38,6 +39,7 @@ const App = () => (
               v7_relativeSplatPath: true,
             }}
           >
+            <GoogleAnalytics />
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Index />} />
