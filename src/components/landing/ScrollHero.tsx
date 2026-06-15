@@ -5,14 +5,28 @@ import { Button } from "@/components/ui/button";
 import { SiteBackdrop } from "@/components/effects/SiteBackdrop";
 import { LottieAsset } from "@/components/effects/LottieAsset";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { SlotMachineCounter } from "@/components/landing/SlotMachineCounter";
 
-const SECTIONS = [
+type HeroSection = {
+  id: string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  tagline?: string;
+  animationPath: string;
+  isCTA?: boolean;
+  isSlotCounter?: boolean;
+  targetCount?: number;
+};
+
+const SECTIONS: HeroSection[] = [
   {
-    id: "intelligence",
+    id: "social-proof",
     title: "CETRANK",
-    subtitle: "The admission intelligence layer",
-    description:
-      "Navigate Maharashtra CET counselling with a product that converts dense cutoff data into a calmer, clearer shortlist workflow.",
+    isSlotCounter: true,
+    targetCount: 900,
+    description: "students got their dream college list.",
+    tagline: "When are you getting yours?",
     animationPath: "/online study.json",
   },
   {
@@ -39,6 +53,96 @@ function easeInOut(t: number) {
 
 function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
+}
+
+function HeroHeadline({
+  section,
+  size = "desktop",
+}: {
+  section: HeroSection;
+  size?: "desktop" | "mobile";
+}) {
+  const isDesktop = size === "desktop";
+
+  if (section.isSlotCounter) {
+    return (
+      <div className={isDesktop ? "max-w-3xl text-center lg:text-left" : "text-center"}>
+        <p className="font-['Outfit'] text-sm font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+          {section.title}
+        </p>
+
+        <div
+          className={
+            isDesktop
+              ? "mt-5 flex justify-center lg:justify-start"
+              : "mt-4 flex justify-center"
+          }
+        >
+          <SlotMachineCounter
+            target={section.targetCount ?? 900}
+            className={
+              isDesktop
+                ? "text-6xl md:text-7xl lg:text-[5rem]"
+                : "text-[3.25rem] sm:text-6xl"
+            }
+          />
+        </div>
+
+        {section.description && (
+          <p
+            className={
+              isDesktop
+                ? "mt-5 max-w-2xl text-lg leading-8 text-muted-foreground md:text-[1.35rem] lg:mx-0 mx-auto"
+                : "mt-4 text-base leading-7 text-muted-foreground mx-auto max-w-lg"
+            }
+          >
+            <span className="font-semibold text-foreground">{section.description}</span>
+          </p>
+        )}
+
+        {section.tagline && (
+          <p
+            className={
+              isDesktop
+                ? "mt-3 text-xl font-bold text-gradient md:text-2xl"
+                : "mt-3 text-lg font-bold text-gradient sm:text-xl"
+            }
+          >
+            {section.tagline}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className={isDesktop ? "max-w-3xl text-center lg:text-left" : "text-center"}>
+      <h2
+        className={
+          isDesktop
+            ? "font-['Outfit'] text-5xl font-black tracking-[-0.05em] md:text-7xl lg:text-[5.5rem]"
+            : "font-['Outfit'] text-[2.35rem] font-black tracking-[-0.04em] sm:text-5xl"
+        }
+      >
+        <span className="block text-foreground">{section.title}</span>
+        {section.subtitle && (
+          <span className="block text-gradient">{section.subtitle}</span>
+        )}
+      </h2>
+
+      {section.description && (
+        <p
+          className={
+            isDesktop
+              ? "mt-5 max-w-2xl text-lg leading-8 text-muted-foreground md:text-[1.35rem] lg:mx-0 mx-auto"
+              : "mt-4 text-base leading-7 text-muted-foreground mx-auto max-w-lg"
+          }
+        >
+          {section.description}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function interpolate(p: number, stops: [number, number][]) {
@@ -71,7 +175,7 @@ function computeStyles(raw: number) {
 function HeroPanel({
   section,
 }: {
-  section: (typeof SECTIONS)[number];
+  section: HeroSection;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -151,17 +255,7 @@ function HeroPanel({
         <div className="relative flex h-full items-center justify-center p-6 pt-28">
           <div className="mx-auto grid w-full max-w-7xl gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
             <div className="max-w-3xl text-center lg:text-left">
-
-              <h2 className="font-['Outfit'] text-5xl font-black tracking-[-0.05em] md:text-7xl lg:text-[5.5rem]">
-                <span className="block text-foreground">{section.title}</span>
-                <span className="block text-gradient">{section.subtitle}</span>
-              </h2>
-
-              {section.description && (
-                <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground md:text-[1.35rem] lg:mx-0 mx-auto">
-                  {section.description}
-                </p>
-              )}
+              <HeroHeadline section={section} size="desktop" />
 
               <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center lg:justify-start">
                 {isCTASection ? (
@@ -206,7 +300,7 @@ function HeroPanel({
 function MobileHeroCard({
   section,
 }: {
-  section: (typeof SECTIONS)[number];
+  section: HeroSection;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -239,19 +333,7 @@ function MobileHeroCard({
         transition: "opacity 0.6s ease-out, transform 0.6s ease-out",
       }}
     >
-      <div className="text-center">
-        <h2 className="font-['Outfit'] text-[2.35rem] font-black tracking-[-0.04em] sm:text-5xl">
-          <span className="block text-foreground">{section.title}</span>
-          <span className="block text-gradient">{section.subtitle}</span>
-        </h2>
-
-        {section.description && (
-          <p className="mt-4 text-base leading-7 text-muted-foreground mx-auto max-w-lg">
-            {section.description}
-          </p>
-        )}
-
-      </div>
+      <HeroHeadline section={section} size="mobile" />
 
       <div className="mt-8 rounded-[24px] border border-border/70 bg-white/80 p-4 shadow-[0_12px_36px_rgba(148,163,184,0.14)] sm:rounded-[28px]">
         <LottieAsset
