@@ -1,4 +1,4 @@
-import { getRequestPath, proxyToBackend } from "../_shared/upstreamProxy.js";
+import { getRequestPath, proxyToBackend } from "./_shared/upstreamProxy.js";
 
 const getUpstreamPath = (req: any): string => {
   const fromQuery = getRequestPath(req.query?.path);
@@ -8,15 +8,10 @@ const getUpstreamPath = (req: any): string => {
 
   const rawUrl = typeof req.url === "string" ? req.url : "";
   const pathname = rawUrl.split("?")[0] || "";
-  const match = pathname.match(/\/api\/v1\/(.+)$/);
+  const match = pathname.match(/\/api\/(.+)$/);
   return match?.[1] ?? "";
 };
 
 export default async function handler(req: any, res: any) {
-  const upstreamPath = getUpstreamPath(req);
-  if (!upstreamPath) {
-    return proxyToBackend(req, res, "");
-  }
-
-  return proxyToBackend(req, res, `v1/${upstreamPath}`);
+  return proxyToBackend(req, res, getUpstreamPath(req));
 }

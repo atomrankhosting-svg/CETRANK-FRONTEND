@@ -260,7 +260,8 @@ export async function getBranches(params?: {
 }
 
 export async function getMetadata(courseType: "engineering" | "pharmacy" = "engineering"): Promise<MetadataResponse> {
-  const endpoint = courseType === "pharmacy" ? "/v1/pharmacy-metadata" : "/v1/metadata";
+  const endpoint =
+    courseType === "pharmacy" ? "/v1/metadata/pharmacy" : "/v1/metadata/engg";
   const res = await fetch(buildApiUrl(endpoint).toString());
 
   if (!res.ok) {
