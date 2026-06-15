@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { setAnalyticsUserId, trackSignOut } from '@/lib/analytics';
 
 // In the future, you can expand this type to include payment status
 // e.g., subscriptionTier: 'free' | 'pro'
@@ -23,6 +24,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setAnalyticsUserId(session?.user?.id ?? null);
       setIsLoading(false);
     });
 
@@ -30,6 +32,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setAnalyticsUserId(session?.user?.id ?? null);
       setIsLoading(false);
     });
 
@@ -37,7 +40,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signOut = async () => {
+    trackSignOut();
     await supabase.auth.signOut();
+    setAnalyticsUserId(null);
   };
 
   return (

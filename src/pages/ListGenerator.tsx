@@ -20,6 +20,15 @@ import { X, User, FileScan, Tag, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DEFAULT_TIER_PRICES, fetchTierPrices, type TierPrices } from "@/lib/listPricing";
 import { BROADEN_FILTERS_ADVICE, MIN_LIST_OPTIONS_FOR_CREDIT } from "@/lib/listConstants";
+import {
+  trackBeginCheckout,
+  trackCouponApplied,
+  trackDownloadPdf,
+  trackGenerateList,
+  trackPaymentCancelled,
+  trackPricingModalOpened,
+  trackPurchase,
+} from "@/lib/analytics";
 
 type InputMethod = "manual" | "upload";
 
@@ -171,6 +180,8 @@ const ListGenerator = () => {
         discount_value: coupon.discount_value,
       });
 
+      trackCouponApplied(coupon.code);
+
       const standardPrice = tierPrices.standard;
       const standardDiscounted =
         coupon.discount_type === "percentage"
@@ -254,6 +265,13 @@ const ListGenerator = () => {
             setAvailableCredits(newTotal);
             setShowPricingModal(false);
             handleRemoveCoupon();
+            trackPurchase({
+              tier,
+              transactionId: `free_coupon_${appliedCoupon.code}`,
+              valueInPaise: 0,
+              creditsAdded: result.credits,
+              couponCode: appliedCoupon.code,
+            });
             toast({
               title: "Credits Added",
               description: `Added ${result.credits} free list credits to your account.`,
@@ -280,6 +298,12 @@ const ListGenerator = () => {
         setAvailableCredits(newTotal);
         setShowPricingModal(false);
         handleRemoveCoupon();
+        trackPurchase({
+          tier,
+          transactionId: `free_tier_${Date.now()}`,
+          valueInPaise: 0,
+          creditsAdded: creditsToAdd,
+        });
         await recordPaymentEvent({
           user_id: user.id,
           user_email: user.email ?? undefined,
@@ -350,6 +374,13 @@ const ListGenerator = () => {
             setAvailableCredits(newTotal);
             setShowPricingModal(false);
             handleRemoveCoupon();
+            trackPurchase({
+              tier,
+              transactionId: response.razorpay_payment_id,
+              valueInPaise: order.amount,
+              creditsAdded: creditsToAdd,
+              couponCode: appliedCoupon?.code,
+            });
             toast({
               title: "Payment Successful",
               description: `Added ${creditsToAdd} list credits to your account!`,
@@ -383,6 +414,7 @@ const ListGenerator = () => {
         },
         modal: {
           ondismiss: function () {
+            trackPaymentCancelled({ tier, valueInPaise: order.amount });
             void recordPaymentEvent({
               user_id: user.id,
               user_email: user.email ?? undefined,
@@ -400,6 +432,12 @@ const ListGenerator = () => {
         }
       };
 
+      trackBeginCheckout({
+        tier,
+        valueInPaise: payableAmountInPaise,
+        couponCode: appliedCoupon?.code,
+      });
+
       const rzp = new (window as any).Razorpay(options);
       rzp.open();
     } catch (err) {
@@ -416,6 +454,7 @@ const ListGenerator = () => {
 
   const handleSearch = async (filters: CutoffRequest) => {
     if (availableCredits !== null && availableCredits <= 0) {
+      trackPricingModalOpened("no_credits");
       setShowPricingModal(true);
       return;
     }
@@ -458,6 +497,12 @@ const ListGenerator = () => {
       }
 
       if (belowMinimumForCredit) {
+        trackGenerateList({
+          inputMethod: searchMethod,
+          resultCount: list.length,
+          courseType: filters.course_type,
+          creditCharged: false,
+        });
         toast({
           title: `Only ${list.length} option${list.length !== 1 ? "s" : ""} found`,
           description: user
@@ -507,6 +552,12 @@ const ListGenerator = () => {
           });
         } else {
           setAvailableCredits(newCreditBalance);
+          trackGenerateList({
+            inputMethod: searchMethod,
+            resultCount: list.length,
+            courseType: filters.course_type,
+            creditCharged: true,
+          });
           toast({
             title: "Success",
             description: `List generated! You have ${newCreditBalance} credits remaining.`,
@@ -547,6 +598,10 @@ const ListGenerator = () => {
         filters: activeGeneratedList.lastFilters,
         userDetails: activeGeneratedList.userDetails,
       });
+      trackDownloadPdf({
+        source: "list_generator",
+        resultCount: activeGeneratedList.results.length,
+      });
       toast({
         title: "PDF downloaded",
         description: `Saved ${activeGeneratedList.results.length} college${activeGeneratedList.results.length !== 1 ? "s" : ""} as a PDF.`,
@@ -580,7 +635,10 @@ const ListGenerator = () => {
                 <Button
                   size="sm"
                   className="rounded-full px-4"
-                  onClick={() => setShowPricingModal(true)}
+                  onClick={() => {
+                    trackPricingModalOpened("manual");
+                    setShowPricingModal(true);
+                  }}
                 >
                   Buy Credits
                 </Button>

@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { trackCtaClick } from "@/lib/analytics";
 import { SiteBackdrop } from "@/components/effects/SiteBackdrop";
 import { LottieAsset } from "@/components/effects/LottieAsset";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -55,6 +56,32 @@ function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
 }
 
+function LaunchListGeneratorButton({
+  fullWidth = false,
+  location = "hero",
+}: {
+  fullWidth?: boolean;
+  location?: string;
+}) {
+  return (
+    <Link
+      to="/list-generator"
+      className={fullWidth ? "block w-full" : "inline-block shrink-0"}
+      onClick={() => trackCtaClick("launch_list_generator", location)}
+    >
+      <Button
+        size="lg"
+        className={`group h-14 rounded-2xl px-8 text-base glow-primary animate-glow-pulse ${
+          fullWidth ? "w-full" : ""
+        }`}
+      >
+        Launch List Generator
+        <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+      </Button>
+    </Link>
+  );
+}
+
 function HeroHeadline({
   section,
   size = "desktop",
@@ -74,8 +101,8 @@ function HeroHeadline({
         <div
           className={
             isDesktop
-              ? "mt-5 flex justify-center lg:justify-start"
-              : "mt-4 flex justify-center"
+              ? "mt-5 flex flex-col items-center gap-6 lg:flex-row lg:items-center lg:justify-start"
+              : "mt-4 flex flex-col items-center gap-5"
           }
         >
           <SlotMachineCounter
@@ -86,6 +113,7 @@ function HeroHeadline({
                 : "text-[3.25rem] sm:text-6xl"
             }
           />
+          <LaunchListGeneratorButton fullWidth={!isDesktop} />
         </div>
 
         {section.description && (
@@ -259,7 +287,10 @@ function HeroPanel({
 
               <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center lg:justify-start">
                 {isCTASection ? (
-                  <Link to="/list-generator">
+                  <Link
+                    to="/list-generator"
+                    onClick={() => trackCtaClick("launch_list_generator", "hero_cta_section")}
+                  >
                     <Button
                       size="lg"
                       className="group h-14 rounded-2xl px-8 text-base glow-primary animate-glow-pulse"
@@ -510,17 +541,6 @@ export function ScrollHero() {
   if (isMobile) {
     return (
       <div ref={wrapperRef} className="mobile-hero-stack">
-        <div className="px-4 pb-4 pt-1">
-          <Link to="/list-generator" className="block">
-            <Button
-              size="lg"
-              className="group h-14 w-full rounded-2xl px-6 text-base glow-primary"
-            >
-              Launch List Generator
-              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-            </Button>
-          </Link>
-        </div>
         {SECTIONS.map((section) => (
           <MobileHeroCard key={section.id} section={section} />
         ))}

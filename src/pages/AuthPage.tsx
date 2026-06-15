@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { LegalFooterLinks } from "@/components/SiteFooter";
 import { toast } from "sonner";
+import { trackLogin, trackSignUp } from "@/lib/analytics";
 
 type AuthMode = "login" | "signup";
 
@@ -57,6 +58,8 @@ const AuthPage = () => {
   const handleGoogleSignIn = async () => {
     if (!requirePolicyAcceptance()) return;
 
+    trackLogin("google");
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -87,6 +90,7 @@ const AuthPage = () => {
 
         if (error) throw error;
 
+        trackLogin("email");
         toast.success("Logged in successfully!");
         navigate(from, { replace: true });
         return;
@@ -103,9 +107,11 @@ const AuthPage = () => {
       if (error) throw error;
 
       if (data.session) {
+        trackSignUp("email");
         toast.success("Account created and logged in!");
         navigate(from, { replace: true });
       } else {
+        trackSignUp("email");
         toast.success("Signup successful! Please check your email to confirm your account.");
         switchMode("login");
       }

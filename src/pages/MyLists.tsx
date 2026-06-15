@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { CollegeCard } from "@/components/dashboard/CollegeCard";
 import { downloadCollegeListPdf } from "@/lib/collegePdf";
+import { trackDownloadPdf } from "@/lib/analytics";
 import { toast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -109,6 +110,10 @@ const MyLists = () => {
         results: colleges,
         userDetails,
         filters: userDetails as any,
+      });
+      trackDownloadPdf({
+        source: "my_lists",
+        resultCount: colleges.length,
       });
       toast({ title: "Downloaded", description: "PDF saved successfully." });
     } catch (error) {

@@ -11,6 +11,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { AppLogo } from "@/components/AppLogo";
 import { LottieAsset } from "@/components/effects/LottieAsset";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { trackCtaClick } from "@/lib/analytics";
 
 function CTASection() {
   const isMobile = useIsMobile();
@@ -46,7 +47,10 @@ function CTASection() {
               </p>
 
               <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center lg:justify-start">
-                <Link to="/list-generator">
+                <Link
+                  to="/list-generator"
+                  onClick={() => trackCtaClick("launch_list_generator", "cta_section")}
+                >
                   <motion.div
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}

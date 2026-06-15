@@ -1,32 +1,19 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-
-const GA_MEASUREMENT_ID = "G-RRSZHG35Z6";
-
-declare global {
-  interface Window {
-    gtag?: (...args: unknown[]) => void;
-  }
-}
+import { GA_MEASUREMENT_ID, isAnalyticsEnabled, trackPageView } from "@/lib/analytics";
 
 /**
- * Sends page views on client-side route changes. The initial page view is
- * already tracked by the gtag snippet in index.html.
+ * Tracks page views on every client-side route change, including the initial load.
+ * Automatic page views are disabled in index.html so SPA navigation is counted once.
  */
 export function GoogleAnalytics() {
   const { pathname, search } = useLocation();
-  const isFirstRender = useRef(true);
 
   useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-
-    window.gtag?.("config", GA_MEASUREMENT_ID, {
-      page_path: pathname + search,
-    });
+    trackPageView(pathname + search);
   }, [pathname, search]);
 
   return null;
 }
+
+export { GA_MEASUREMENT_ID, isAnalyticsEnabled };
