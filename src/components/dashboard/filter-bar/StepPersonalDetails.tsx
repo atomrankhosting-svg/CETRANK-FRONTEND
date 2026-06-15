@@ -3,6 +3,7 @@ import { ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { FilterCard } from "./filterBarShared";
 import type { FilterFormState } from "./useFilterFormState";
 
@@ -10,8 +11,6 @@ type StepPersonalDetailsProps = Pick<
   FilterFormState,
   | "studentName"
   | "setStudentName"
-  | "courseType"
-  | "setCourseType"
   | "university"
   | "setUniversity"
   | "gender"
@@ -44,8 +43,6 @@ type StepPersonalDetailsProps = Pick<
 export function StepPersonalDetails({
   studentName,
   setStudentName,
-  courseType,
-  setCourseType,
   university,
   setUniversity,
   gender,
@@ -74,47 +71,24 @@ export function StepPersonalDetails({
   languageRef,
   closeOtherDropdowns,
 }: StepPersonalDetailsProps) {
+  const isReligionDefault = religion === "Not Applicable";
+  const isLanguageDefault = language === "Not Applicable";
+
   return (
     <div className="space-y-5">
+      <FilterCard className="max-w-xl mx-auto">
+        <Label className="mb-2 flex items-center gap-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+          Student Full Name <span className="text-red-500">*</span>
+        </Label>
+        <Input
+          placeholder="Enter student's full name"
+          value={studentName}
+          onChange={(e) => setStudentName(e.target.value)}
+          className="rounded-2xl border-border/80 bg-white/90 focus-visible:ring-primary/40"
+        />
+      </FilterCard>
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <FilterCard>
-          <Label className="mb-2 flex items-center gap-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-            Course Type <span className="text-red-500">*</span>
-          </Label>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {[
-              { label: "Engineering", value: "engineering" },
-              { label: "Pharmacy", value: "pharmacy" },
-            ].map((c) => (
-              <Button
-                key={c.value}
-                variant={courseType === c.value ? "default" : "outline"}
-                size="sm"
-                className={`flex-1 rounded-xl transition-all ${
-                  courseType === c.value ? "glow-subtle" : ""
-                }`}
-                onClick={() => setCourseType(c.value as "engineering" | "pharmacy")}
-              >
-                {c.label}
-              </Button>
-            ))}
-          </div>
-        </FilterCard>
-
-        <FilterCard>
-          <Label className="mb-2 flex items-center gap-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-            Student Full Name <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            placeholder="Enter student's full name"
-            value={studentName}
-            onChange={(e) => setStudentName(e.target.value)}
-            className="rounded-2xl border-border/80 bg-white/90 focus-visible:ring-primary/40"
-          />
-        </FilterCard>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <div ref={universityRef} className="relative">
           <FilterCard>
             <Label className="mb-2 flex items-center gap-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
@@ -190,11 +164,21 @@ export function StepPersonalDetails({
             ))}
           </div>
         </FilterCard>
+      </div>
 
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div ref={religionRef} className="relative">
-          <FilterCard>
-            <Label className="mb-2 flex items-center gap-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+          <FilterCard
+            className={cn(
+              "transition-opacity",
+              isReligionDefault && "opacity-70 bg-secondary/20 border-dashed",
+            )}
+          >
+            <Label className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Minority Religion
+              <span className="ml-auto text-[9px] font-normal normal-case tracking-normal text-muted-foreground/80">
+                Optional
+              </span>
             </Label>
             <div
               className="relative cursor-pointer"
@@ -204,10 +188,13 @@ export function StepPersonalDetails({
               }}
             >
               <Input
-                placeholder="Select religion"
+                placeholder="Not Applicable"
                 value={showReligionDropdown ? religionSearch : religion}
                 onChange={(e) => setReligionSearch(e.target.value)}
-                className="pr-8 rounded-2xl border-border/80 bg-white/90 focus-visible:ring-primary/40"
+                className={cn(
+                  "pr-8 rounded-2xl border-border/80 focus-visible:ring-primary/40",
+                  isReligionDefault ? "bg-secondary/30 text-muted-foreground" : "bg-white/90",
+                )}
               />
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             </div>
@@ -242,13 +229,19 @@ export function StepPersonalDetails({
             </AnimatePresence>
           </FilterCard>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <div ref={languageRef} className="relative">
-          <FilterCard>
-            <Label className="mb-2 flex items-center gap-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-wrap">
+          <FilterCard
+            className={cn(
+              "transition-opacity",
+              isLanguageDefault && "opacity-70 bg-secondary/20 border-dashed",
+            )}
+          >
+            <Label className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-wrap">
               Minority Language / Ethnicity
+              <span className="ml-auto text-[9px] font-normal normal-case tracking-normal text-muted-foreground/80">
+                Optional
+              </span>
             </Label>
             <div
               className="relative cursor-pointer"
@@ -258,10 +251,13 @@ export function StepPersonalDetails({
               }}
             >
               <Input
-                placeholder="Select language"
+                placeholder="Not Applicable"
                 value={showLanguageDropdown ? languageSearch : language}
                 onChange={(e) => setLanguageSearch(e.target.value)}
-                className="pr-8 rounded-2xl border-border/80 bg-white/90 focus-visible:ring-primary/40"
+                className={cn(
+                  "pr-8 rounded-2xl border-border/80 focus-visible:ring-primary/40",
+                  isLanguageDefault ? "bg-secondary/30 text-muted-foreground" : "bg-white/90",
+                )}
               />
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             </div>

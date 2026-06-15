@@ -331,6 +331,8 @@ export function useFilterFormState({ onSearch }: UseFilterFormStateOptions) {
         return Boolean(studentName.trim() && university && gender);
       case 3:
         return courseType === "engineering" || selectedPharmacyCourses.length > 0;
+      case 4:
+        return true;
       default:
         return false;
     }

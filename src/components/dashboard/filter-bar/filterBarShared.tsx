@@ -63,9 +63,10 @@ export const FC_ACK_UPLOAD_DISPLAY_LIMIT_BYTES = import.meta.env.DEV
 export const MANUAL_TFWS_STORAGE_KEY = "cetrank:manual:is_tfws";
 
 export const FORM_STEPS = [
-  { id: 1, label: "Scores & Category" },
-  { id: 2, label: "Personal Details" },
-  { id: 3, label: "Preferences" },
+  { id: 1, label: "Course & Score" },
+  { id: 2, label: "About You" },
+  { id: 3, label: "Location & Branch" },
+  { id: 4, label: "Final Filters" },
 ] as const;
 
 export type FormStep = (typeof FORM_STEPS)[number]["id"];

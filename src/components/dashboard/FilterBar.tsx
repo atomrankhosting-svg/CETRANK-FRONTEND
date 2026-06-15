@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import type { CutoffRequest } from "@/lib/api";
 import { FormStepper } from "./filter-bar/FormStepper";
-import { StepScoresCategory } from "./filter-bar/StepScoresCategory";
+import { StepCourseScore } from "./filter-bar/StepCourseScore";
 import { StepPersonalDetails } from "./filter-bar/StepPersonalDetails";
-import { StepPreferences } from "./filter-bar/StepPreferences";
+import { StepLocationBranch } from "./filter-bar/StepLocationBranch";
+import { StepFinalFilters } from "./filter-bar/StepFinalFilters";
 import { useFilterFormState } from "./filter-bar/useFilterFormState";
 import type { FormStep } from "./filter-bar/filterBarShared";
 
@@ -15,6 +16,8 @@ interface FilterBarProps {
   onSearch: (filters: CutoffRequest) => void;
   isLoading: boolean;
 }
+
+const TOTAL_STEPS = 4;
 
 const stepVariants = {
   enter: (direction: number) => ({
@@ -52,7 +55,7 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
       return;
     }
 
-    if (currentStep < 3) {
+    if (currentStep < TOTAL_STEPS) {
       setDirection(1);
       setCurrentStep((s) => (s + 1) as FormStep);
     }
@@ -99,7 +102,7 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
           </div>
           <div>
             <span className="font-semibold text-base block">Intelligent Filters</span>
-            <span className="text-xs text-muted-foreground">Step {currentStep} of 3</span>
+            <span className="text-xs text-muted-foreground">Step {currentStep} of {TOTAL_STEPS}</span>
           </div>
         </div>
 
@@ -122,9 +125,10 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
             exit="exit"
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
           >
-            {currentStep === 1 && <StepScoresCategory {...form} />}
+            {currentStep === 1 && <StepCourseScore {...form} />}
             {currentStep === 2 && <StepPersonalDetails {...form} />}
-            {currentStep === 3 && <StepPreferences {...form} />}
+            {currentStep === 3 && <StepLocationBranch {...form} />}
+            {currentStep === 4 && <StepFinalFilters {...form} />}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -145,7 +149,7 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
           </div>
 
           <div className="flex gap-2 sm:ml-auto">
-            {currentStep < 3 ? (
+            {currentStep < TOTAL_STEPS ? (
               <Button
                 onClick={handleNext}
                 className="h-11 flex-1 rounded-2xl glow-primary sm:flex-none sm:min-w-[140px]"

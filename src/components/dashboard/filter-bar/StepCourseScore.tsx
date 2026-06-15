@@ -1,17 +1,19 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { FilterCard, formatPercentile } from "./filterBarShared";
 import type { FilterFormState } from "./useFilterFormState";
 
-type StepScoresCategoryProps = Pick<
+type StepCourseScoreProps = Pick<
   FilterFormState,
+  | "courseType"
+  | "setCourseType"
   | "category"
   | "setCategory"
   | "percentile"
   | "jeePercentile"
-  | "courseType"
   | "categorySearch"
   | "setCategorySearch"
   | "showCatDropdown"
@@ -24,12 +26,13 @@ type StepScoresCategoryProps = Pick<
   | "setJeePercentile"
 >;
 
-export function StepScoresCategory({
+export function StepCourseScore({
+  courseType,
+  setCourseType,
   category,
   setCategory,
   percentile,
   jeePercentile,
-  courseType,
   categorySearch,
   setCategorySearch,
   showCatDropdown,
@@ -40,9 +43,33 @@ export function StepScoresCategory({
   handlePercentileChange,
   setPercentile,
   setJeePercentile,
-}: StepScoresCategoryProps) {
+}: StepCourseScoreProps) {
   return (
     <div className="space-y-5">
+      <FilterCard className="max-w-xl mx-auto">
+        <Label className="mb-2 flex items-center gap-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+          Course Type <span className="text-red-500">*</span>
+        </Label>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {[
+            { label: "Engineering", value: "engineering" },
+            { label: "Pharmacy", value: "pharmacy" },
+          ].map((c) => (
+            <Button
+              key={c.value}
+              variant={courseType === c.value ? "default" : "outline"}
+              size="sm"
+              className={`flex-1 rounded-xl transition-all ${
+                courseType === c.value ? "glow-subtle" : ""
+              }`}
+              onClick={() => setCourseType(c.value as "engineering" | "pharmacy")}
+            >
+              {c.label}
+            </Button>
+          ))}
+        </div>
+      </FilterCard>
+
       <div ref={categoryRef} className="relative max-w-xl mx-auto">
         <FilterCard>
           <Label className="mb-2 flex items-center gap-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">

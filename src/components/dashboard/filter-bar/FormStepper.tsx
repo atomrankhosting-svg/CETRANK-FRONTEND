@@ -17,7 +17,7 @@ export function FormStepper({ currentStep }: FormStepperProps) {
           aria-hidden
         />
 
-        <ol className="relative grid grid-cols-3 gap-2 sm:gap-4">
+        <ol className="relative grid grid-cols-4 gap-1 sm:gap-3">
           {FORM_STEPS.map((step) => {
             const isCompleted = step.id < currentStep;
             const isCurrent = step.id === currentStep;
@@ -36,7 +36,7 @@ export function FormStepper({ currentStep }: FormStepperProps) {
                 </div>
                 <span
                   className={cn(
-                    "mt-2 text-[10px] font-semibold uppercase tracking-wider leading-tight sm:text-[11px]",
+                    "mt-2 text-[9px] font-semibold uppercase tracking-wider leading-tight sm:text-[10px]",
                     isCurrent ? "text-primary" : isCompleted ? "text-foreground" : "text-muted-foreground",
                   )}
                 >
