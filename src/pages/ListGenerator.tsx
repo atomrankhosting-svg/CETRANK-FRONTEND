@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { FilterBar } from "@/components/dashboard/FilterBar";
 import { ImageUploadFlow } from "@/components/dashboard/ImageUploadFlow";
@@ -29,6 +29,11 @@ import {
   trackPricingModalOpened,
   trackPurchase,
 } from "@/lib/analytics";
+import {
+  clearPendingGenerate,
+  loadPendingGenerate,
+  savePendingGenerate,
+} from "@/lib/filterFormDraft";
 
 type InputMethod = "manual" | "upload";
 
@@ -53,6 +58,7 @@ const SHOW_FC_RECEIPT_AUTOFILL = false;
 
 const ListGenerator = () => {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [inputMethod, setInputMethod] = useState<InputMethod>("manual");
   const [generatedLists, setGeneratedLists] = useState<Record<InputMethod, GeneratedListState>>({
@@ -79,6 +85,7 @@ const ListGenerator = () => {
   const [couponError, setCouponError] = useState<string | null>(null);
 
   const headerRef = useRef<HTMLDivElement>(null);
+  const pendingGenerateHandled = useRef(false);
   const activeGeneratedList = generatedLists[inputMethod];
   const isCurrentMethodLoading = loadingMethod === inputMethod;
   const isCurrentMethodDownloading = downloadingMethod === inputMethod;
@@ -453,6 +460,18 @@ const ListGenerator = () => {
   };
 
   const handleSearch = async (filters: CutoffRequest) => {
+    if (!user) {
+      savePendingGenerate(filters);
+      toast({
+        title: "Create an account to generate your list",
+        description: "Sign up to continue — your form details will be saved.",
+      });
+      navigate("/auth?mode=signup", {
+        state: { from: { pathname: "/list-generator" } },
+      });
+      return;
+    }
+
     if (availableCredits !== null && availableCredits <= 0) {
       trackPricingModalOpened("no_credits");
       setShowPricingModal(true);
@@ -586,6 +605,23 @@ const ListGenerator = () => {
       setLoadingMethod((currentMethod) => (currentMethod === searchMethod ? null : currentMethod));
     }
   };
+
+  useEffect(() => {
+    if (!user || pendingGenerateHandled.current) return;
+
+    const pendingFilters = loadPendingGenerate();
+    if (!pendingFilters) return;
+
+    pendingGenerateHandled.current = true;
+    clearPendingGenerate();
+
+    toast({
+      title: "Welcome back!",
+      description: "Your form details were restored. Generating your list now…",
+    });
+
+    void handleSearch(pendingFilters);
+  }, [user]);
 
   const handleDownloadPdf = async () => {
     if (activeGeneratedList.results.length === 0) return;

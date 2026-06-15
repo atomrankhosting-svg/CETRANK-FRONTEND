@@ -21,32 +21,69 @@ import {
   type BranchFilters,
   type FormStep,
 } from "./filterBarShared";
+import {
+  clearFilterFormDraft,
+  loadFilterFormDraft,
+  saveFilterFormDraft,
+  type FilterFormDraft,
+} from "@/lib/filterFormDraft";
 
 interface UseFilterFormStateOptions {
   onSearch: (filters: CutoffRequest) => void;
+  currentStep?: FormStep;
 }
 
-export function useFilterFormState({ onSearch }: UseFilterFormStateOptions) {
-  const [studentName, setStudentName] = useState("");
-  const [category, setCategory] = useState("");
-  const [university, setUniversity] = useState("");
-  const [selectedCities, setSelectedCities] = useState<string[]>([]);
-  const [religion, setReligion] = useState<string>("Not Applicable");
-  const [language, setLanguage] = useState<string>("Not Applicable");
-  const [selectedDivisions, setSelectedDivisions] = useState<string[]>([]);
-  const [gender, setGender] = useState("");
-  const [percentile, setPercentile] = useState<string | number>("");
-  const [jeePercentile, setJeePercentile] = useState<string | number>("");
-  const [branches, setBranches] = useState<BranchFilters>(EMPTY_BRANCHES);
-  const [isEws, setIsEws] = useState(false);
-  const [isTfws, setIsTfws] = useState(false);
-  const [locationFlexibility, setLocationFlexibility] = useState<1 | 2 | 3>(3);
-  const [capRound, setCapRound] = useState<1 | 2 | 3 | null>(null);
-  const [courseType, setCourseType] = useState<"engineering" | "pharmacy">("engineering");
-  const [selectedPharmacyCourses, setSelectedPharmacyCourses] = useState<string[]>([
-    "Pharmacy",
-    "Pharm D ( Doctor of Pharmacy)",
-  ]);
+const getInitialField = <K extends keyof FilterFormDraft>(
+  key: K,
+  fallback: FilterFormDraft[K],
+): FilterFormDraft[K] => {
+  const draft = loadFilterFormDraft();
+  if (draft && draft[key] !== undefined && draft[key] !== null) {
+    return draft[key];
+  }
+  return fallback;
+};
+
+export function useFilterFormState({ onSearch, currentStep = 1 }: UseFilterFormStateOptions) {
+  const [studentName, setStudentName] = useState(() => getInitialField("studentName", ""));
+  const [category, setCategory] = useState(() => getInitialField("category", ""));
+  const [university, setUniversity] = useState(() => getInitialField("university", ""));
+  const [selectedCities, setSelectedCities] = useState<string[]>(() =>
+    getInitialField("selectedCities", []),
+  );
+  const [religion, setReligion] = useState<string>(() =>
+    getInitialField("religion", "Not Applicable"),
+  );
+  const [language, setLanguage] = useState<string>(() =>
+    getInitialField("language", "Not Applicable"),
+  );
+  const [selectedDivisions, setSelectedDivisions] = useState<string[]>(() =>
+    getInitialField("selectedDivisions", []),
+  );
+  const [gender, setGender] = useState(() => getInitialField("gender", ""));
+  const [percentile, setPercentile] = useState<string | number>(() =>
+    getInitialField("percentile", ""),
+  );
+  const [jeePercentile, setJeePercentile] = useState<string | number>(() =>
+    getInitialField("jeePercentile", ""),
+  );
+  const [branches, setBranches] = useState<BranchFilters>(() =>
+    getInitialField("branches", EMPTY_BRANCHES),
+  );
+  const [isEws, setIsEws] = useState(() => getInitialField("isEws", false));
+  const [isTfws, setIsTfws] = useState(() => getInitialField("isTfws", false));
+  const [locationFlexibility, setLocationFlexibility] = useState<1 | 2 | 3>(() =>
+    getInitialField("locationFlexibility", 3),
+  );
+  const [capRound, setCapRound] = useState<1 | 2 | 3 | null>(() =>
+    getInitialField("capRound", null),
+  );
+  const [courseType, setCourseType] = useState<"engineering" | "pharmacy">(() =>
+    getInitialField("courseType", "engineering"),
+  );
+  const [selectedPharmacyCourses, setSelectedPharmacyCourses] = useState<string[]>(() =>
+    getInitialField("selectedPharmacyCourses", ["Pharmacy", "Pharm D ( Doctor of Pharmacy)"]),
+  );
   const [isExtractingDocument, setIsExtractingDocument] = useState(false);
   const [uploadedDocumentName, setUploadedDocumentName] = useState("");
 
@@ -174,6 +211,48 @@ export function useFilterFormState({ onSearch }: UseFilterFormStateOptions) {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(MANUAL_TFWS_STORAGE_KEY, String(isTfws));
   }, [isTfws]);
+
+  useEffect(() => {
+    saveFilterFormDraft({
+      currentStep,
+      studentName,
+      category,
+      university,
+      selectedCities,
+      religion,
+      language,
+      selectedDivisions,
+      gender,
+      percentile,
+      jeePercentile,
+      branches,
+      isEws,
+      isTfws,
+      locationFlexibility,
+      capRound,
+      courseType,
+      selectedPharmacyCourses,
+    });
+  }, [
+    currentStep,
+    studentName,
+    category,
+    university,
+    selectedCities,
+    religion,
+    language,
+    selectedDivisions,
+    gender,
+    percentile,
+    jeePercentile,
+    branches,
+    isEws,
+    isTfws,
+    locationFlexibility,
+    capRound,
+    courseType,
+    selectedPharmacyCourses,
+  ]);
 
   const closeOtherDropdowns = (keep: string) => {
     if (keep !== "cat") setShowCatDropdown(false);
@@ -321,6 +400,7 @@ export function useFilterFormState({ onSearch }: UseFilterFormStateOptions) {
     setShowCatDropdown(false);
     setShowDivisionDropdown(false);
     setUploadedDocumentName("");
+    clearFilterFormDraft();
   };
 
   const canProceedStep = (step: FormStep) => {

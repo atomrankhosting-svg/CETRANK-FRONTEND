@@ -11,6 +11,7 @@ import { StepLocationBranch } from "./filter-bar/StepLocationBranch";
 import { StepFinalFilters } from "./filter-bar/StepFinalFilters";
 import { useFilterFormState } from "./filter-bar/useFilterFormState";
 import type { FormStep } from "./filter-bar/filterBarShared";
+import { loadFilterFormDraft } from "@/lib/filterFormDraft";
 
 interface FilterBarProps {
   onSearch: (filters: CutoffRequest) => void;
@@ -35,9 +36,11 @@ const stepVariants = {
 };
 
 export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
-  const form = useFilterFormState({ onSearch });
-  const [currentStep, setCurrentStep] = useState<FormStep>(1);
+  const [currentStep, setCurrentStep] = useState<FormStep>(
+    () => loadFilterFormDraft()?.currentStep ?? 1,
+  );
   const [direction, setDirection] = useState(0);
+  const form = useFilterFormState({ onSearch, currentStep });
 
   const handleReset = () => {
     form.resetFilters();

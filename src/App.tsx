@@ -43,6 +43,7 @@ const App = () => (
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Index />} />
+              <Route path="/list-generator" element={<ListGenerator />} />
               <Route path="/terms" element={<LegalPage slug="terms" />} />
               <Route path="/privacy" element={<LegalPage slug="privacy" />} />
               <Route path="/refund" element={<LegalPage slug="refund" />} />
@@ -51,7 +52,6 @@ const App = () => (
               
               {/* Protected Routes */}
               <Route element={<ProtectedRoute />}>
-                <Route path="/list-generator" element={<ListGenerator />} />
                 <Route path="/my-lists" element={<MyLists />} />
 
                 <Route element={<AdminPasswordGate />}>
