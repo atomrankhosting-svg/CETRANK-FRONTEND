@@ -105,6 +105,12 @@ export interface CutoffResponse {
   results: CollegeResult[];
 }
 
+export interface GatedListResponse extends CutoffResponse {
+  is_locked: boolean;
+  credit_not_charged?: boolean;
+  credits_remaining?: number;
+}
+
 export interface CutoffRequest {
   student_name?: string;
   user_category: string;
@@ -319,15 +325,12 @@ export async function getEligibleCutoffs(request: CutoffRequest): Promise<Cutoff
   const isPharmacy = request.course_type === "pharmacy";
   const endpoint = isPharmacy ? "/v1/get-pharmacy-cutoffs" : "/v1/get-cutoffs";
   const url = buildApiUrl(endpoint).toString();
-  console.log("[getEligibleCutoffs] POST", url);
 
   const payload = { ...request };
-  delete payload.course_type; // the backend might not expect it
+  delete payload.course_type;
   if (isPharmacy) {
     payload.course_names = request.course_names || ["Pharmacy", "Pharm D ( Doctor of Pharmacy)"];
   }
-
-  console.log("[getEligibleCutoffs] Request body:", JSON.stringify(payload, null, 2));
 
   const res = await fetch(url, {
     method: "POST",
@@ -335,11 +338,8 @@ export async function getEligibleCutoffs(request: CutoffRequest): Promise<Cutoff
     body: JSON.stringify(payload),
   });
 
-  console.log("[getEligibleCutoffs] Response status:", res.status);
-
   if (!res.ok) {
     const detail = await parseErrorDetail(res);
-    console.error("[getEligibleCutoffs] API error:", res.status, detail);
     throw new ApiError(
       res.status,
       `Failed to fetch eligible cutoffs (${res.status})`,
@@ -349,12 +349,7 @@ export async function getEligibleCutoffs(request: CutoffRequest): Promise<Cutoff
 
   const data = await res.json();
 
-  console.log("[getEligibleCutoffs] Response keys:", data ? Object.keys(data) : "null/undefined");
-  console.log("[getEligibleCutoffs] count:", data?.count, "| results length:", data?.results?.length);
-
   if (Array.isArray(data)) {
-    console.log("[getEligibleCutoffs] Response is a direct array, length:", data.length);
-    // If it's just an array, we synthesize a response object
     return {
       results: data,
       count: data.length,
@@ -417,12 +412,74 @@ export async function getEligibleCutoffs(request: CutoffRequest): Promise<Cutoff
     };
   }
 
-  console.warn("[getEligibleCutoffs] Returning empty response — no results found");
   return {
     results: [],
     count: 0,
     user_details: request as unknown as UserDetails
   };
+}
+
+const authHeaders = (accessToken: string) => ({
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${accessToken}`,
+});
+
+const parseGatedListResponse = (data: any, request: CutoffRequest): GatedListResponse => {
+  const results = Array.isArray(data?.results) ? data.results : [];
+  const userDetails = (data?.user_details ?? request) as UserDetails;
+
+  return {
+    results,
+    count: typeof data?.count === "number" ? data.count : results.length,
+    user_details: userDetails,
+    is_locked: Boolean(data?.is_locked),
+    credit_not_charged: data?.credit_not_charged === true,
+    credits_remaining:
+      typeof data?.credits_remaining === "number" ? data.credits_remaining : undefined,
+  };
+};
+
+const buildAppApiUrl = (path: string) =>
+  new URL(path.startsWith("/") ? path : `/${path}`, window.location.origin);
+
+export async function generateCollegeList(
+  filters: CutoffRequest,
+  accessToken: string,
+): Promise<GatedListResponse> {
+  const url = buildAppApiUrl("/api/v1/lists/generate").toString();
+  const res = await fetch(url, {
+    method: "POST",
+    headers: authHeaders(accessToken),
+    body: JSON.stringify({ filters }),
+  });
+
+  if (!res.ok) {
+    const detail = await parseErrorDetail(res);
+    throw new ApiError(res.status, `Failed to generate college list (${res.status})`, detail);
+  }
+
+  const data = await res.json();
+  return parseGatedListResponse(data, filters);
+}
+
+export async function unlockCollegeList(
+  filters: CutoffRequest,
+  accessToken: string,
+): Promise<GatedListResponse> {
+  const url = buildAppApiUrl("/api/v1/lists/unlock").toString();
+  const res = await fetch(url, {
+    method: "POST",
+    headers: authHeaders(accessToken),
+    body: JSON.stringify({ filters }),
+  });
+
+  if (!res.ok) {
+    const detail = await parseErrorDetail(res);
+    throw new ApiError(res.status, `Failed to unlock college list (${res.status})`, detail);
+  }
+
+  const data = await res.json();
+  return parseGatedListResponse(data, filters);
 }
 
 export async function extractFcAcknowledgeDetails(file: File): Promise<FcAcknowledgeAutofillData> {

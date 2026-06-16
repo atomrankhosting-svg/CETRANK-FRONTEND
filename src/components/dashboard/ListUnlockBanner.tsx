@@ -5,10 +5,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface ListUnlockBannerProps {
   lockedCount: number;
+  hasCredits?: boolean;
   onUnlock: () => void;
 }
 
-export function ListUnlockBanner({ lockedCount, onUnlock }: ListUnlockBannerProps) {
+export function ListUnlockBanner({ lockedCount, hasCredits = false, onUnlock }: ListUnlockBannerProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -58,7 +59,7 @@ export function ListUnlockBanner({ lockedCount, onUnlock }: ListUnlockBannerProp
           onClick={onUnlock}
         >
           <Sparkles className="h-4 w-4" />
-          Unlock full list
+          {hasCredits ? "Use 1 credit" : "Unlock full list"}
         </Button>
       </div>
     </motion.div>

@@ -4,7 +4,7 @@ import { Navbar } from "@/components/Navbar";
 import { FilterBar } from "@/components/dashboard/FilterBar";
 import { ImageUploadFlow } from "@/components/dashboard/ImageUploadFlow";
 import { CollegeResults } from "@/components/dashboard/CollegeResults";
-import { ApiError, getEligibleCutoffs, createRazorpayOrder, verifyRazorpaySignature, claimFreeCoupon, recordPaymentEvent } from "@/lib/api";
+import { ApiError, generateCollegeList, unlockCollegeList, createRazorpayOrder, verifyRazorpaySignature, claimFreeCoupon, recordPaymentEvent } from "@/lib/api";
 import type { CollegeResult, CutoffRequest } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -44,6 +44,7 @@ type GeneratedListState = {
   lastFilters: CutoffRequest | null;
   creditNotCharged: boolean;
   isLocked: boolean;
+  totalCount: number;
 };
 
 const createInitialGeneratedListState = (): GeneratedListState => ({
@@ -53,6 +54,7 @@ const createInitialGeneratedListState = (): GeneratedListState => ({
   lastFilters: null,
   creditNotCharged: false,
   isLocked: false,
+  totalCount: 0,
 });
 
 /** Set to true to re-enable the FC Receipt AI autofill tab */
@@ -61,13 +63,14 @@ const SHOW_FC_RECEIPT_AUTOFILL = false;
 const ListGenerator = () => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [inputMethod, setInputMethod] = useState<InputMethod>("manual");
   const [generatedLists, setGeneratedLists] = useState<Record<InputMethod, GeneratedListState>>({
     manual: createInitialGeneratedListState(),
     upload: createInitialGeneratedListState(),
   });
   const [loadingMethod, setLoadingMethod] = useState<InputMethod | null>(null);
+  const [unlockingMethod, setUnlockingMethod] = useState<InputMethod | null>(null);
   const [downloadingMethod, setDownloadingMethod] = useState<InputMethod | null>(null);
 
   const [availableCredits, setAvailableCredits] = useState<number | null>(null);
@@ -253,7 +256,7 @@ const ListGenerator = () => {
       // Capture locked list state at payment start so callbacks use consistent data
       const lockedListSnapshot = generatedLists[inputMethod];
       const isListPendingUnlock =
-        lockedListSnapshot.isLocked && lockedListSnapshot.results.length >= MIN_LIST_OPTIONS_FOR_CREDIT;
+        lockedListSnapshot.isLocked && lockedListSnapshot.totalCount >= MIN_LIST_OPTIONS_FOR_CREDIT;
 
       if (payableAmountInPaise <= 0) {
         if (appliedCoupon) {
@@ -287,14 +290,8 @@ const ListGenerator = () => {
               creditsAdded: result.credits,
               couponCode: appliedCoupon.code,
             });
-            if (isListPendingUnlock) {
-              await unlockList(
-                lockedListSnapshot.results,
-                lockedListSnapshot.userDetails,
-                lockedListSnapshot.lastFilters,
-                inputMethod,
-                newTotal,
-              );
+            if (isListPendingUnlock && lockedListSnapshot.lastFilters) {
+              await unlockList(lockedListSnapshot.lastFilters, inputMethod);
             } else {
               toast({
                 title: "Credits Added",
@@ -337,14 +334,8 @@ const ListGenerator = () => {
           amount_in_paise: 0,
           coupon_code: appliedCoupon?.code,
         });
-        if (isListPendingUnlock) {
-          await unlockList(
-            lockedListSnapshot.results,
-            lockedListSnapshot.userDetails,
-            lockedListSnapshot.lastFilters,
-            inputMethod,
-            newTotal,
-          );
+        if (isListPendingUnlock && lockedListSnapshot.lastFilters) {
+          await unlockList(lockedListSnapshot.lastFilters, inputMethod);
         } else {
           toast({
             title: "Credits Added",
@@ -416,14 +407,8 @@ const ListGenerator = () => {
               creditsAdded: creditsToAdd,
               couponCode: appliedCoupon?.code,
             });
-            if (isListPendingUnlock) {
-              await unlockList(
-                lockedListSnapshot.results,
-                lockedListSnapshot.userDetails,
-                lockedListSnapshot.lastFilters,
-                inputMethod,
-                newTotal,
-              );
+            if (isListPendingUnlock && lockedListSnapshot.lastFilters) {
+              await unlockList(lockedListSnapshot.lastFilters, inputMethod);
             } else {
               toast({
                 title: "Payment Successful",
@@ -497,79 +482,74 @@ const ListGenerator = () => {
     }
   };
 
-  /**
-   * Save the list to history, deduct 1 credit, and unlock the results UI.
-   * `currentCredits` is the balance to deduct from (before this unlock).
-   */
-  const unlockList = async (
-    list: CollegeResult[],
-    userDetails: UserDetails | null,
-    filters: CutoffRequest | null,
-    searchMethod: InputMethod,
-    currentCredits: number,
-  ) => {
-    if (!user || !filters) return;
+  const getAccessToken = () => session?.access_token ?? null;
 
-    const listDataPayload = {
-      results: list,
-      user_details: userDetails || filters,
-      count: list.length,
-    };
-
-    const { error } = await supabase.from("college_lists").insert({
-      user_id: user.id,
-      list_data: listDataPayload,
-    });
-
-    if (error) {
-      console.error("Failed to save list to history:", error);
+  /** Fetch full list from server, save history, and deduct 1 credit. */
+  const unlockList = async (filters: CutoffRequest, searchMethod: InputMethod) => {
+    const accessToken = getAccessToken();
+    if (!user || !accessToken) {
       toast({
-        title: "History update failed",
-        description: "Could not save list to your profile history. No credits were deducted. Please try again.",
+        title: "Session expired",
+        description: "Please sign in again to unlock your list.",
         variant: "destructive",
       });
       return;
     }
 
-    const newCreditBalance = currentCredits - 1;
-    const { error: updateError } = await supabase
-      .from("user_credits")
-      .update({ available_credits: newCreditBalance })
-      .eq("user_id", user.id);
+    if (unlockingMethod !== null) return;
 
-    if (updateError) {
-      console.error("Failed to deduct credits after generation:", updateError);
-    } else {
-      setAvailableCredits(newCreditBalance);
+    setUnlockingMethod(searchMethod);
+    try {
+      const response = await unlockCollegeList(filters, accessToken);
+
+      if (response.credits_remaining !== undefined) {
+        setAvailableCredits(response.credits_remaining);
+      }
+
+      setGeneratedLists((currentLists) => ({
+        ...currentLists,
+        [searchMethod]: {
+          ...currentLists[searchMethod],
+          results: response.results,
+          userDetails: response.user_details,
+          isLocked: false,
+          totalCount: response.count,
+          creditNotCharged: false,
+        },
+      }));
+
+      trackGenerateList({
+        inputMethod: searchMethod,
+        resultCount: response.count,
+        courseType: filters.course_type,
+        creditCharged: true,
+      });
+
+      toast({
+        title: "List unlocked!",
+        description: `Showing all ${response.count} colleges. You have ${Math.max(0, response.credits_remaining ?? 0)} credits remaining.`,
+      });
+    } catch (err) {
+      console.error("[ListGenerator] Error unlocking list:", err);
+      toast({
+        title: "Unlock failed",
+        description:
+          err instanceof ApiError && err.detail
+            ? err.detail
+            : "Could not unlock the full list. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUnlockingMethod((current) => (current === searchMethod ? null : current));
     }
-
-    setGeneratedLists((currentLists) => ({
-      ...currentLists,
-      [searchMethod]: {
-        ...currentLists[searchMethod],
-        isLocked: false,
-      },
-    }));
-
-    trackGenerateList({
-      inputMethod: searchMethod,
-      resultCount: list.length,
-      courseType: filters.course_type,
-      creditCharged: true,
-    });
-
-    toast({
-      title: "List unlocked!",
-      description: `Showing all ${list.length} colleges. You have ${Math.max(0, newCreditBalance)} credits remaining.`,
-    });
   };
 
   const handleUnlockList = () => {
     const list = generatedLists[inputMethod];
-    if (!list.isLocked || list.results.length === 0) return;
+    if (!list.isLocked || !list.lastFilters || list.totalCount === 0) return;
 
     if (availableCredits !== null && availableCredits > 0) {
-      void unlockList(list.results, list.userDetails, list.lastFilters, inputMethod, availableCredits);
+      void unlockList(list.lastFilters, inputMethod);
     } else {
       setPricingModalContext("unlock_list");
       trackPricingModalOpened("no_credits");
@@ -590,6 +570,19 @@ const ListGenerator = () => {
       return;
     }
 
+    const accessToken = getAccessToken();
+    if (!accessToken) {
+      toast({
+        title: "Session expired",
+        description: "Please sign in again to generate your list.",
+        variant: "destructive",
+      });
+      navigate("/auth?mode=signup", {
+        state: { from: { pathname: "/list-generator" } },
+      });
+      return;
+    }
+
     const searchMethod = inputMethod;
 
     setLoadingMethod(searchMethod);
@@ -603,13 +596,21 @@ const ListGenerator = () => {
     }));
 
     try {
-      const apiResponse = await getEligibleCutoffs(filters);
-      const { results: list, user_details } = apiResponse;
-      
-      const belowMinimumForCredit =
-        list.length > 0 && list.length < MIN_LIST_OPTIONS_FOR_CREDIT;
+      const apiResponse = await generateCollegeList(filters, accessToken);
+      const {
+        results: list,
+        user_details,
+        count,
+        is_locked: isLocked,
+        credit_not_charged: creditNotCharged,
+        credits_remaining: creditsRemaining,
+      } = apiResponse;
 
-      if (list.length === 0) {
+      if (creditsRemaining !== undefined) {
+        setAvailableCredits(creditsRemaining);
+      }
+
+      if (count === 0) {
         setGeneratedLists((currentLists) => ({
           ...currentLists,
           [searchMethod]: {
@@ -618,6 +619,7 @@ const ListGenerator = () => {
             userDetails: user_details,
             creditNotCharged: false,
             isLocked: false,
+            totalCount: 0,
           },
         }));
         toast({
@@ -627,7 +629,7 @@ const ListGenerator = () => {
         return;
       }
 
-      if (belowMinimumForCredit) {
+      if (creditNotCharged) {
         setGeneratedLists((currentLists) => ({
           ...currentLists,
           [searchMethod]: {
@@ -636,26 +638,21 @@ const ListGenerator = () => {
             userDetails: user_details,
             creditNotCharged: true,
             isLocked: false,
+            totalCount: count,
           },
         }));
         trackGenerateList({
           inputMethod: searchMethod,
-          resultCount: list.length,
+          resultCount: count,
           courseType: filters.course_type,
           creditCharged: false,
         });
         toast({
-          title: `Only ${list.length} option${list.length !== 1 ? "s" : ""} found`,
-          description: user
-            ? `No credit was used. ${BROADEN_FILTERS_ADVICE}`
-            : BROADEN_FILTERS_ADVICE,
+          title: `Only ${count} option${count !== 1 ? "s" : ""} found`,
+          description: `No credit was used. ${BROADEN_FILTERS_ADVICE}`,
         });
         return;
       }
-
-      // 30+ results: show preview if no credits, otherwise unlock immediately
-      const hasCredits = availableCredits !== null && availableCredits > 0;
-      const shouldLock = !hasCredits;
 
       setGeneratedLists((currentLists) => ({
         ...currentLists,
@@ -664,24 +661,33 @@ const ListGenerator = () => {
           results: list,
           userDetails: user_details,
           creditNotCharged: false,
-          isLocked: shouldLock,
+          isLocked,
+          totalCount: count,
         },
       }));
 
-      if (shouldLock) {
+      if (isLocked) {
         trackGenerateList({
           inputMethod: searchMethod,
-          resultCount: list.length,
+          resultCount: count,
           courseType: filters.course_type,
           creditCharged: false,
         });
         toast({
           title: `${PREVIEW_COLLEGE_COUNT} colleges previewed`,
-          description: `Unlock the full list of ${list.length} colleges to see all your options.`,
+          description: `Unlock the full list of ${count} colleges to see all your options.`,
         });
       } else {
-        // Credits available — save and deduct immediately
-        await unlockList(list, user_details, filters, searchMethod, availableCredits!);
+        trackGenerateList({
+          inputMethod: searchMethod,
+          resultCount: count,
+          courseType: filters.course_type,
+          creditCharged: true,
+        });
+        toast({
+          title: "Success",
+          description: `List generated! You have ${creditsRemaining ?? availableCredits ?? 0} credits remaining.`,
+        });
       }
     } catch (err) {
       console.error("[ListGenerator] Error in handleSearch:", err);
@@ -700,6 +706,7 @@ const ListGenerator = () => {
           results: [],
           creditNotCharged: false,
           isLocked: false,
+          totalCount: 0,
         },
       }));
     } finally {
@@ -708,7 +715,7 @@ const ListGenerator = () => {
   };
 
   useEffect(() => {
-    if (!user || pendingGenerateHandled.current) return;
+    if (!user || !session?.access_token || pendingGenerateHandled.current) return;
 
     const pendingFilters = loadPendingGenerate();
     if (!pendingFilters) return;
@@ -722,7 +729,7 @@ const ListGenerator = () => {
     });
 
     void handleSearch(pendingFilters);
-  }, [user]);
+  }, [user, session?.access_token]);
 
   const handleDownloadPdf = async () => {
     if (activeGeneratedList.isLocked) {
@@ -861,7 +868,9 @@ const ListGenerator = () => {
               hasSearched={activeGeneratedList.hasSearched}
               creditNotCharged={activeGeneratedList.creditNotCharged}
               isLocked={activeGeneratedList.isLocked}
-              lockedCount={Math.max(0, activeGeneratedList.results.length - PREVIEW_COLLEGE_COUNT)}
+              totalCount={activeGeneratedList.totalCount}
+              lockedCount={Math.max(0, activeGeneratedList.totalCount - PREVIEW_COLLEGE_COUNT)}
+              hasCredits={availableCredits !== null && availableCredits > 0}
               onUnlock={handleUnlockList}
               onDownloadPdf={handleDownloadPdf}
               isDownloadingPdf={isCurrentMethodDownloading}
@@ -888,7 +897,7 @@ const ListGenerator = () => {
             </h2>
             <p className="mb-6 text-center text-sm text-muted-foreground sm:mb-8 sm:text-base">
               {pricingModalContext === "unlock_list"
-                ? `You've seen your top ${PREVIEW_COLLEGE_COUNT} matches. Purchase credits to unlock all ${activeGeneratedList.results.length} colleges, PDF download, and save to My Lists.`
+                ? `You've seen your top ${PREVIEW_COLLEGE_COUNT} matches. Purchase credits to unlock all ${activeGeneratedList.totalCount} colleges, PDF download, and save to My Lists.`
                 : "Choose a credit pack to generate highly accurate, AI-filtered college prediction lists."}
             </p>
 

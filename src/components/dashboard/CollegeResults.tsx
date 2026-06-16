@@ -14,7 +14,9 @@ interface CollegeResultsProps {
   hasSearched: boolean;
   creditNotCharged?: boolean;
   isLocked?: boolean;
+  totalCount?: number;
   lockedCount?: number;
+  hasCredits?: boolean;
   onUnlock?: () => void;
   onDownloadPdf: () => void | Promise<void>;
   isDownloadingPdf: boolean;
@@ -26,7 +28,9 @@ export function CollegeResults({
   hasSearched,
   creditNotCharged = false,
   isLocked = false,
+  totalCount = 0,
   lockedCount = 0,
+  hasCredits = false,
   onUnlock,
   onDownloadPdf,
   isDownloadingPdf,
@@ -34,6 +38,7 @@ export function CollegeResults({
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 50;
 
+  const displayTotal = isLocked ? totalCount : results.length;
   const visibleResults = isLocked ? results.slice(0, PREVIEW_COLLEGE_COUNT) : results;
   const totalPages = Math.max(1, Math.ceil(visibleResults.length / pageSize));
   const pageStart = (currentPage - 1) * pageSize;
@@ -123,7 +128,7 @@ export function CollegeResults({
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-sm text-muted-foreground font-medium">
               {isLocked
-                ? `Showing ${PREVIEW_COLLEGE_COUNT} of ${results.length} colleges`
+                ? `Showing ${PREVIEW_COLLEGE_COUNT} of ${displayTotal} colleges`
                 : `${results.length} college${results.length !== 1 ? "s" : ""} found`}
             </span>
           </div>
@@ -165,7 +170,11 @@ export function CollegeResults({
       </AnimatePresence>
 
       {isLocked && onUnlock && (
-        <ListUnlockBanner lockedCount={lockedCount} onUnlock={onUnlock} />
+        <ListUnlockBanner
+          lockedCount={lockedCount}
+          hasCredits={hasCredits}
+          onUnlock={onUnlock}
+        />
       )}
 
       {!isLocked && visibleResults.length > pageSize && (
