@@ -29,8 +29,8 @@ export default async function handler(req: any, res: any) {
       return sendJson(res, 400, { detail: "filters is required." });
     }
 
-    const { userId } = await verifySupabaseUser(req);
-    const credits = await getUserCredits(userId);
+    const { userId, accessToken } = await verifySupabaseUser(req);
+    const credits = await getUserCredits(userId, accessToken);
     const backend = await fetchCutoffsFromBackend(filters, req);
     const resultCount = backend.results.length;
 
@@ -59,6 +59,7 @@ export default async function handler(req: any, res: any) {
           count: backend.count,
         },
         credits,
+        accessToken,
       );
 
       return sendJson(

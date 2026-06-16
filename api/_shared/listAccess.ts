@@ -1,5 +1,5 @@
 import { getBackendBaseUrl, getOriginGuardHeaders } from "./backendProxy.js";
-import { getSupabaseConfig } from "./paymentUtils.js";
+import { getEnv, getSupabaseConfig } from "./paymentUtils.js";
 
 export const PREVIEW_COLLEGE_COUNT = 5;
 export const MIN_LIST_OPTIONS_FOR_CREDIT = 30;
@@ -41,6 +41,30 @@ const supabaseRestHeaders = (key: string, prefer?: string) => ({
   ...(prefer ? { Prefer: prefer } : {}),
 });
 
+const getSupabaseAnonKey = () =>
+  getEnv("SUPABASE_ANON_KEY") || getEnv("VITE_SUPABASE_ANON_KEY");
+
+/** Service role bypasses RLS; otherwise use the caller's JWT so RLS policies apply. */
+const buildSupabaseHeaders = (accessToken: string, prefer?: string) => {
+  const { key, usingServiceRole } = getSupabaseConfig();
+
+  if (usingServiceRole && key) {
+    return supabaseRestHeaders(key, prefer);
+  }
+
+  const anonKey = getSupabaseAnonKey();
+  if (!anonKey) {
+    throw new Error("Supabase anon key is not configured on the server.");
+  }
+
+  return {
+    apikey: anonKey,
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+    ...(prefer ? { Prefer: prefer } : {}),
+  };
+};
+
 const getBearerToken = (req: { headers?: Record<string, string | string[] | undefined> }): string | null => {
   const authHeader = req.headers?.authorization ?? req.headers?.Authorization;
   if (typeof authHeader !== "string" || !authHeader.startsWith("Bearer ")) {
@@ -52,20 +76,21 @@ const getBearerToken = (req: { headers?: Record<string, string | string[] | unde
 
 export async function verifySupabaseUser(
   req: { headers?: Record<string, string | string[] | undefined> },
-): Promise<{ userId: string; email?: string }> {
+): Promise<{ userId: string; email?: string; accessToken: string }> {
   const token = getBearerToken(req);
   if (!token) {
     throw new AuthError("Missing or invalid Authorization header.");
   }
 
-  const { url, key } = getSupabaseConfig();
-  if (!url || !key) {
+  const { url } = getSupabaseConfig();
+  const apikey = getSupabaseAnonKey() || getSupabaseConfig().key;
+  if (!url || !apikey) {
     throw new Error("Supabase is not configured on the server.");
   }
 
   const response = await fetch(`${url.replace(/\/+$/, "")}/auth/v1/user`, {
     headers: {
-      apikey: key,
+      apikey,
       Authorization: `Bearer ${token}`,
     },
   });
@@ -82,7 +107,7 @@ export async function verifySupabaseUser(
     throw new AuthError("Could not resolve authenticated user.");
   }
 
-  return { userId, email };
+  return { userId, email, accessToken: token };
 }
 
 export class AuthError extends Error {
@@ -92,9 +117,9 @@ export class AuthError extends Error {
   }
 }
 
-export async function getUserCredits(userId: string): Promise<number> {
-  const { url, key } = getSupabaseConfig();
-  if (!url || !key) {
+export async function getUserCredits(userId: string, accessToken: string): Promise<number> {
+  const { url } = getSupabaseConfig();
+  if (!url) {
     throw new Error("Supabase is not configured on the server.");
   }
 
@@ -104,7 +129,7 @@ export async function getUserCredits(userId: string): Promise<number> {
     "&select=available_credits";
 
   const response = await fetch(queryUrl, {
-    headers: supabaseRestHeaders(key),
+    headers: buildSupabaseHeaders(accessToken),
   });
 
   if (!response.ok) {
@@ -225,17 +250,19 @@ export async function saveListAndDeductCredit(
   userId: string,
   listData: { results: unknown[]; user_details: unknown; count: number },
   currentCredits: number,
+  accessToken: string,
 ): Promise<{ newCreditBalance: number }> {
-  const { url, key } = getSupabaseConfig();
-  if (!url || !key) {
+  const { url } = getSupabaseConfig();
+  if (!url) {
     throw new Error("Supabase is not configured on the server.");
   }
 
   const baseUrl = url.replace(/\/+$/, "");
+  const authHeaders = buildSupabaseHeaders(accessToken, "return=minimal");
 
   const insertResponse = await fetch(`${baseUrl}/rest/v1/college_lists`, {
     method: "POST",
-    headers: supabaseRestHeaders(key, "return=minimal"),
+    headers: authHeaders,
     body: JSON.stringify({
       user_id: userId,
       list_data: listData,
@@ -252,7 +279,7 @@ export async function saveListAndDeductCredit(
     `${baseUrl}/rest/v1/user_credits?user_id=eq.${encodeURIComponent(userId)}`,
     {
       method: "PATCH",
-      headers: supabaseRestHeaders(key, "return=minimal"),
+      headers: authHeaders,
       body: JSON.stringify({ available_credits: newCreditBalance }),
     },
   );
