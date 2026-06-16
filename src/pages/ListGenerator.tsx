@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { X, User, FileScan, Tag, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DEFAULT_TIER_PRICES, fetchTierPrices, type TierPrices } from "@/lib/listPricing";
-import { BROADEN_FILTERS_ADVICE, MIN_LIST_OPTIONS_FOR_CREDIT } from "@/lib/listConstants";
+import { BROADEN_FILTERS_ADVICE, MIN_LIST_OPTIONS_FOR_CREDIT, PREVIEW_COLLEGE_COUNT } from "@/lib/listConstants";
 import {
   trackBeginCheckout,
   trackCouponApplied,
@@ -43,6 +43,7 @@ type GeneratedListState = {
   hasSearched: boolean;
   lastFilters: CutoffRequest | null;
   creditNotCharged: boolean;
+  isLocked: boolean;
 };
 
 const createInitialGeneratedListState = (): GeneratedListState => ({
@@ -51,6 +52,7 @@ const createInitialGeneratedListState = (): GeneratedListState => ({
   hasSearched: false,
   lastFilters: null,
   creditNotCharged: false,
+  isLocked: false,
 });
 
 /** Set to true to re-enable the FC Receipt AI autofill tab */
@@ -70,6 +72,7 @@ const ListGenerator = () => {
 
   const [availableCredits, setAvailableCredits] = useState<number | null>(null);
   const [showPricingModal, setShowPricingModal] = useState(false);
+  const [pricingModalContext, setPricingModalContext] = useState<"buy_credits" | "unlock_list">("buy_credits");
   const [paymentLoadingTier, setPaymentLoadingTier] = useState<"basic" | "standard" | "pro" | null>(null);
   const [tierPrices, setTierPrices] = useState<TierPrices>(DEFAULT_TIER_PRICES);
 
@@ -247,6 +250,11 @@ const ListGenerator = () => {
       const payableAmountInPaise = getPayableAmountInPaise(tier);
 
       // Skip Razorpay for free checkout (zero-priced tier or 100% discount coupon)
+      // Capture locked list state at payment start so callbacks use consistent data
+      const lockedListSnapshot = generatedLists[inputMethod];
+      const isListPendingUnlock =
+        lockedListSnapshot.isLocked && lockedListSnapshot.results.length >= MIN_LIST_OPTIONS_FOR_CREDIT;
+
       if (payableAmountInPaise <= 0) {
         if (appliedCoupon) {
           const result = await claimFreeCoupon(appliedCoupon.code, tier, {
@@ -279,10 +287,20 @@ const ListGenerator = () => {
               creditsAdded: result.credits,
               couponCode: appliedCoupon.code,
             });
-            toast({
-              title: "Credits Added",
-              description: `Added ${result.credits} free list credits to your account.`,
-            });
+            if (isListPendingUnlock) {
+              await unlockList(
+                lockedListSnapshot.results,
+                lockedListSnapshot.userDetails,
+                lockedListSnapshot.lastFilters,
+                inputMethod,
+                newTotal,
+              );
+            } else {
+              toast({
+                title: "Credits Added",
+                description: `Added ${result.credits} free list credits to your account.`,
+              });
+            }
           }
           return;
         }
@@ -319,10 +337,20 @@ const ListGenerator = () => {
           amount_in_paise: 0,
           coupon_code: appliedCoupon?.code,
         });
-        toast({
-          title: "Credits Added",
-          description: `Added ${creditsToAdd} free list credit${creditsToAdd > 1 ? "s" : ""} to your account.`,
-        });
+        if (isListPendingUnlock) {
+          await unlockList(
+            lockedListSnapshot.results,
+            lockedListSnapshot.userDetails,
+            lockedListSnapshot.lastFilters,
+            inputMethod,
+            newTotal,
+          );
+        } else {
+          toast({
+            title: "Credits Added",
+            description: `Added ${creditsToAdd} free list credit${creditsToAdd > 1 ? "s" : ""} to your account.`,
+          });
+        }
         return;
       }
 
@@ -388,10 +416,20 @@ const ListGenerator = () => {
               creditsAdded: creditsToAdd,
               couponCode: appliedCoupon?.code,
             });
-            toast({
-              title: "Payment Successful",
-              description: `Added ${creditsToAdd} list credits to your account!`,
-            });
+            if (isListPendingUnlock) {
+              await unlockList(
+                lockedListSnapshot.results,
+                lockedListSnapshot.userDetails,
+                lockedListSnapshot.lastFilters,
+                inputMethod,
+                newTotal,
+              );
+            } else {
+              toast({
+                title: "Payment Successful",
+                description: `Added ${creditsToAdd} list credits to your account!`,
+              });
+            }
           } catch (err) {
             console.error("Signature verification failed:", err);
             await recordPaymentEvent({
@@ -459,6 +497,86 @@ const ListGenerator = () => {
     }
   };
 
+  /**
+   * Save the list to history, deduct 1 credit, and unlock the results UI.
+   * `currentCredits` is the balance to deduct from (before this unlock).
+   */
+  const unlockList = async (
+    list: CollegeResult[],
+    userDetails: UserDetails | null,
+    filters: CutoffRequest | null,
+    searchMethod: InputMethod,
+    currentCredits: number,
+  ) => {
+    if (!user || !filters) return;
+
+    const listDataPayload = {
+      results: list,
+      user_details: userDetails || filters,
+      count: list.length,
+    };
+
+    const { error } = await supabase.from("college_lists").insert({
+      user_id: user.id,
+      list_data: listDataPayload,
+    });
+
+    if (error) {
+      console.error("Failed to save list to history:", error);
+      toast({
+        title: "History update failed",
+        description: "Could not save list to your profile history. No credits were deducted. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const newCreditBalance = currentCredits - 1;
+    const { error: updateError } = await supabase
+      .from("user_credits")
+      .update({ available_credits: newCreditBalance })
+      .eq("user_id", user.id);
+
+    if (updateError) {
+      console.error("Failed to deduct credits after generation:", updateError);
+    } else {
+      setAvailableCredits(newCreditBalance);
+    }
+
+    setGeneratedLists((currentLists) => ({
+      ...currentLists,
+      [searchMethod]: {
+        ...currentLists[searchMethod],
+        isLocked: false,
+      },
+    }));
+
+    trackGenerateList({
+      inputMethod: searchMethod,
+      resultCount: list.length,
+      courseType: filters.course_type,
+      creditCharged: true,
+    });
+
+    toast({
+      title: "List unlocked!",
+      description: `Showing all ${list.length} colleges. You have ${Math.max(0, newCreditBalance)} credits remaining.`,
+    });
+  };
+
+  const handleUnlockList = () => {
+    const list = generatedLists[inputMethod];
+    if (!list.isLocked || list.results.length === 0) return;
+
+    if (availableCredits !== null && availableCredits > 0) {
+      void unlockList(list.results, list.userDetails, list.lastFilters, inputMethod, availableCredits);
+    } else {
+      setPricingModalContext("unlock_list");
+      trackPricingModalOpened("no_credits");
+      setShowPricingModal(true);
+    }
+  };
+
   const handleSearch = async (filters: CutoffRequest) => {
     if (!user) {
       savePendingGenerate(filters);
@@ -469,12 +587,6 @@ const ListGenerator = () => {
       navigate("/auth?mode=signup", {
         state: { from: { pathname: "/list-generator" } },
       });
-      return;
-    }
-
-    if (availableCredits !== null && availableCredits <= 0) {
-      trackPricingModalOpened("no_credits");
-      setShowPricingModal(true);
       return;
     }
 
@@ -497,17 +609,17 @@ const ListGenerator = () => {
       const belowMinimumForCredit =
         list.length > 0 && list.length < MIN_LIST_OPTIONS_FOR_CREDIT;
 
-      setGeneratedLists((currentLists) => ({
-        ...currentLists,
-        [searchMethod]: {
-          ...currentLists[searchMethod],
-          results: list,
-          userDetails: user_details,
-          creditNotCharged: belowMinimumForCredit,
-        },
-      }));
-
       if (list.length === 0) {
+        setGeneratedLists((currentLists) => ({
+          ...currentLists,
+          [searchMethod]: {
+            ...currentLists[searchMethod],
+            results: list,
+            userDetails: user_details,
+            creditNotCharged: false,
+            isLocked: false,
+          },
+        }));
         toast({
           title: "No results",
           description: "Try adjusting your filters for more options.",
@@ -516,6 +628,16 @@ const ListGenerator = () => {
       }
 
       if (belowMinimumForCredit) {
+        setGeneratedLists((currentLists) => ({
+          ...currentLists,
+          [searchMethod]: {
+            ...currentLists[searchMethod],
+            results: list,
+            userDetails: user_details,
+            creditNotCharged: true,
+            isLocked: false,
+          },
+        }));
         trackGenerateList({
           inputMethod: searchMethod,
           resultCount: list.length,
@@ -531,57 +653,35 @@ const ListGenerator = () => {
         return;
       }
 
-      if (user && list.length > 0) {
-        // BULLETPROOF FIX: Explicitly constructing the JSON object to guarantee
-        // that Supabase receives an object and not just the array.
-        const listDataPayload = {
+      // 30+ results: show preview if no credits, otherwise unlock immediately
+      const hasCredits = availableCredits !== null && availableCredits > 0;
+      const shouldLock = !hasCredits;
+
+      setGeneratedLists((currentLists) => ({
+        ...currentLists,
+        [searchMethod]: {
+          ...currentLists[searchMethod],
           results: list,
-          user_details: user_details || filters,
-          count: list.length
-        };
+          userDetails: user_details,
+          creditNotCharged: false,
+          isLocked: shouldLock,
+        },
+      }));
 
-        // Save to college_lists history first to ensure credits are not deducted if database save fails
-        const { error } = await supabase.from("college_lists").insert({
-          user_id: user.id,
-          list_data: listDataPayload,
+      if (shouldLock) {
+        trackGenerateList({
+          inputMethod: searchMethod,
+          resultCount: list.length,
+          courseType: filters.course_type,
+          creditCharged: false,
         });
-
-        if (error) {
-          console.error("Failed to save list to history:", error);
-          toast({
-            title: "History update failed",
-            description: "Could not save list to your profile history. No credits were deducted. Please try again.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        const newCreditBalance = (availableCredits || 1) - 1;
-        const { error: updateError } = await supabase
-          .from("user_credits")
-          .update({ available_credits: newCreditBalance })
-          .eq("user_id", user.id);
-
-        if (updateError) {
-          console.error("Failed to deduct credits after generation:", updateError);
-          // If credit deduction fails but save succeeds, we still let it succeed in UI since history was created.
-          toast({
-            title: "Success",
-            description: "List generated successfully and saved to history.",
-          });
-        } else {
-          setAvailableCredits(newCreditBalance);
-          trackGenerateList({
-            inputMethod: searchMethod,
-            resultCount: list.length,
-            courseType: filters.course_type,
-            creditCharged: true,
-          });
-          toast({
-            title: "Success",
-            description: `List generated! You have ${newCreditBalance} credits remaining.`,
-          });
-        }
+        toast({
+          title: `${PREVIEW_COLLEGE_COUNT} colleges previewed`,
+          description: `Unlock the full list of ${list.length} colleges to see all your options.`,
+        });
+      } else {
+        // Credits available — save and deduct immediately
+        await unlockList(list, user_details, filters, searchMethod, availableCredits!);
       }
     } catch (err) {
       console.error("[ListGenerator] Error in handleSearch:", err);
@@ -599,6 +699,7 @@ const ListGenerator = () => {
           ...currentLists[searchMethod],
           results: [],
           creditNotCharged: false,
+          isLocked: false,
         },
       }));
     } finally {
@@ -624,6 +725,14 @@ const ListGenerator = () => {
   }, [user]);
 
   const handleDownloadPdf = async () => {
+    if (activeGeneratedList.isLocked) {
+      toast({
+        title: "List locked",
+        description: "Unlock the full list first to download the PDF.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (activeGeneratedList.results.length === 0) return;
     const downloadMethod = inputMethod;
     setDownloadingMethod(downloadMethod);
@@ -672,6 +781,7 @@ const ListGenerator = () => {
                   size="sm"
                   className="rounded-full px-4"
                   onClick={() => {
+                    setPricingModalContext("buy_credits");
                     trackPricingModalOpened("manual");
                     setShowPricingModal(true);
                   }}
@@ -750,6 +860,9 @@ const ListGenerator = () => {
               isLoading={isCurrentMethodLoading}
               hasSearched={activeGeneratedList.hasSearched}
               creditNotCharged={activeGeneratedList.creditNotCharged}
+              isLocked={activeGeneratedList.isLocked}
+              lockedCount={Math.max(0, activeGeneratedList.results.length - PREVIEW_COLLEGE_COUNT)}
+              onUnlock={handleUnlockList}
               onDownloadPdf={handleDownloadPdf}
               isDownloadingPdf={isCurrentMethodDownloading}
             />
@@ -768,10 +881,15 @@ const ListGenerator = () => {
               <X className="h-4 w-4" />
             </button>
 
-            <h2 className="mb-2 pr-10 text-center text-2xl font-bold">Unlock Your College Lists</h2>
+            <h2 className="mb-2 pr-10 text-center text-2xl font-bold">
+              {pricingModalContext === "unlock_list"
+                ? "Unlock Your Full College List"
+                : "Buy List Credits"}
+            </h2>
             <p className="mb-6 text-center text-sm text-muted-foreground sm:mb-8 sm:text-base">
-              You are out of credits. Choose a tier to generate highly accurate, AI-filtered
-              college prediction lists.
+              {pricingModalContext === "unlock_list"
+                ? `You've seen your top ${PREVIEW_COLLEGE_COUNT} matches. Purchase credits to unlock all ${activeGeneratedList.results.length} colleges, PDF download, and save to My Lists.`
+                : "Choose a credit pack to generate highly accurate, AI-filtered college prediction lists."}
             </p>
 
             {/* Coupon Code Section */}

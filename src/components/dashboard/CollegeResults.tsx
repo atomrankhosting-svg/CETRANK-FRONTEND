@@ -1,17 +1,21 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { CollegeCard } from "./CollegeCard";
+import { ListUnlockBanner } from "./ListUnlockBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, ChevronLeft, ChevronRight, Download, GraduationCap, Search } from "lucide-react";
 import type { CollegeResult } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
-import { BROADEN_FILTERS_ADVICE, MIN_LIST_OPTIONS_FOR_CREDIT } from "@/lib/listConstants";
+import { BROADEN_FILTERS_ADVICE, MIN_LIST_OPTIONS_FOR_CREDIT, PREVIEW_COLLEGE_COUNT } from "@/lib/listConstants";
 
 interface CollegeResultsProps {
   results: CollegeResult[];
   isLoading: boolean;
   hasSearched: boolean;
   creditNotCharged?: boolean;
+  isLocked?: boolean;
+  lockedCount?: number;
+  onUnlock?: () => void;
   onDownloadPdf: () => void | Promise<void>;
   isDownloadingPdf: boolean;
 }
@@ -21,14 +25,19 @@ export function CollegeResults({
   isLoading,
   hasSearched,
   creditNotCharged = false,
+  isLocked = false,
+  lockedCount = 0,
+  onUnlock,
   onDownloadPdf,
   isDownloadingPdf,
 }: CollegeResultsProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 50;
-  const totalPages = Math.max(1, Math.ceil(results.length / pageSize));
+
+  const visibleResults = isLocked ? results.slice(0, PREVIEW_COLLEGE_COUNT) : results;
+  const totalPages = Math.max(1, Math.ceil(visibleResults.length / pageSize));
   const pageStart = (currentPage - 1) * pageSize;
-  const paginatedResults = results.slice(pageStart, pageStart + pageSize);
+  const paginatedResults = visibleResults.slice(pageStart, pageStart + pageSize);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -113,7 +122,9 @@ export function CollegeResults({
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-sm text-muted-foreground font-medium">
-              {results.length} college{results.length !== 1 ? "s" : ""} found
+              {isLocked
+                ? `Showing ${PREVIEW_COLLEGE_COUNT} of ${results.length} colleges`
+                : `${results.length} college${results.length !== 1 ? "s" : ""} found`}
             </span>
           </div>
 
@@ -137,7 +148,8 @@ export function CollegeResults({
           variant="outline"
           className="h-11 w-full rounded-full border-border/70 bg-white/85 sm:w-auto"
           onClick={onDownloadPdf}
-          disabled={isDownloadingPdf}
+          disabled={isDownloadingPdf || isLocked}
+          title={isLocked ? "Unlock the full list to download PDF" : undefined}
         >
           <Download className="h-4 w-4" />
           {isDownloadingPdf ? "Preparing PDF..." : "Download PDF"}
@@ -152,10 +164,14 @@ export function CollegeResults({
         </div>
       </AnimatePresence>
 
-      {results.length > pageSize && (
+      {isLocked && onUnlock && (
+        <ListUnlockBanner lockedCount={lockedCount} onUnlock={onUnlock} />
+      )}
+
+      {!isLocked && visibleResults.length > pageSize && (
         <div className="mt-6 flex flex-col items-center gap-3">
           <p className="text-xs text-muted-foreground text-center font-medium">
-            Showing {pageStart + 1} - {Math.min(pageStart + pageSize, results.length)} of {results.length} results.
+            Showing {pageStart + 1} - {Math.min(pageStart + pageSize, visibleResults.length)} of {visibleResults.length} results.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             <Button
