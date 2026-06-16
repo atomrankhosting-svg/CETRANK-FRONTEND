@@ -161,21 +161,23 @@ export function CollegeResults({
         </Button>
       </div>
 
-      {isLocked && onUnlock && (
-        <ListUnlockBanner
-          lockedCount={lockedCount}
-          hasCredits={hasCredits}
-          onUnlock={onUnlock}
-        />
-      )}
+      <div className="space-y-3">
+        <AnimatePresence mode="popLayout">
+          <div className="space-y-3">
+            {paginatedResults.map((college, index) => (
+              <CollegeCard key={pageStart + index} college={college} index={pageStart + index} pageIndex={index} />
+            ))}
+          </div>
+        </AnimatePresence>
 
-      <AnimatePresence mode="popLayout">
-        <div className="space-y-3">
-          {paginatedResults.map((college, index) => (
-            <CollegeCard key={pageStart + index} college={college} index={pageStart + index} pageIndex={index} />
-          ))}
-        </div>
-      </AnimatePresence>
+        {isLocked && onUnlock && (
+          <ListUnlockBanner
+            lockedCount={lockedCount}
+            hasCredits={hasCredits}
+            onUnlock={onUnlock}
+          />
+        )}
+      </div>
 
       {!isLocked && visibleResults.length > pageSize && (
         <div className="mt-6 flex flex-col items-center gap-3">
