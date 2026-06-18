@@ -1,8 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { CollegeCard } from "./CollegeCard";
-import { ListUnlockBanner } from "./ListUnlockBanner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, ChevronLeft, ChevronRight, Download, GraduationCap, Search } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, Download, GraduationCap, Search, Sparkles } from "lucide-react";
 import type { CollegeResult } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -15,9 +14,9 @@ interface CollegeResultsProps {
   creditNotCharged?: boolean;
   isLocked?: boolean;
   totalCount?: number;
-  lockedCount?: number;
   hasCredits?: boolean;
   onUnlock?: () => void;
+  isUnlocking?: boolean;
   onDownloadPdf: () => void | Promise<void>;
   isDownloadingPdf: boolean;
 }
@@ -29,9 +28,9 @@ export function CollegeResults({
   creditNotCharged = false,
   isLocked = false,
   totalCount = 0,
-  lockedCount = 0,
   hasCredits = false,
   onUnlock,
+  isUnlocking = false,
   onDownloadPdf,
   isDownloadingPdf,
 }: CollegeResultsProps) {
@@ -148,17 +147,29 @@ export function CollegeResults({
             </motion.div>
           )}
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-11 w-full rounded-full border-border/70 bg-white/85 sm:w-auto"
-          onClick={onDownloadPdf}
-          disabled={isDownloadingPdf || isLocked}
-          title={isLocked ? "Unlock the full list to download PDF" : undefined}
-        >
-          <Download className="h-4 w-4" />
-          {isDownloadingPdf ? "Preparing PDF..." : "Download PDF"}
-        </Button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          {isLocked && onUnlock && (
+            <Button
+              type="button"
+              className="h-11 w-full gap-2 rounded-full px-6 shadow-md shadow-primary/15 sm:w-auto"
+              onClick={onUnlock}
+              disabled={isUnlocking || isDownloadingPdf}
+            >
+              <Sparkles className="h-4 w-4" />
+              {isUnlocking ? "Unlocking..." : hasCredits ? "Use 1 credit" : "Unlock full list"}
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 w-full rounded-full border-border/70 bg-white/85 sm:w-auto"
+            onClick={onDownloadPdf}
+            disabled={isDownloadingPdf || isUnlocking}
+          >
+            <Download className="h-4 w-4" />
+            {isDownloadingPdf ? "Preparing PDF..." : "Download PDF"}
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -169,14 +180,6 @@ export function CollegeResults({
             ))}
           </div>
         </AnimatePresence>
-
-        {isLocked && onUnlock && (
-          <ListUnlockBanner
-            lockedCount={lockedCount}
-            hasCredits={hasCredits}
-            onUnlock={onUnlock}
-          />
-        )}
       </div>
 
       {!isLocked && visibleResults.length > pageSize && (

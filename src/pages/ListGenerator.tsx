@@ -5,7 +5,7 @@ import { FilterBar } from "@/components/dashboard/FilterBar";
 import { ImageUploadFlow } from "@/components/dashboard/ImageUploadFlow";
 import { CollegeResults } from "@/components/dashboard/CollegeResults";
 import { ApiError, generateCollegeList, unlockCollegeList, createRazorpayOrder, verifyRazorpaySignature, claimFreeCoupon, recordPaymentEvent } from "@/lib/api";
-import type { CollegeResult, CutoffRequest } from "@/lib/api";
+import type { CollegeResult, CutoffRequest, GatedListResponse } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import gsap from "gsap";
@@ -94,6 +94,7 @@ const ListGenerator = () => {
   const pendingGenerateHandled = useRef(false);
   const activeGeneratedList = generatedLists[inputMethod];
   const isCurrentMethodLoading = loadingMethod === inputMethod;
+  const isCurrentMethodUnlocking = unlockingMethod === inputMethod;
   const isCurrentMethodDownloading = downloadingMethod === inputMethod;
 
   useEffect(() => {
@@ -484,8 +485,39 @@ const ListGenerator = () => {
 
   const getAccessToken = () => session?.access_token ?? null;
 
+  const openPlansModal = (
+    context: "buy_credits" | "unlock_list",
+    reason: "no_credits" | "manual",
+  ) => {
+    setPricingModalContext(context);
+    trackPricingModalOpened(reason);
+    setShowPricingModal(true);
+  };
+
+  const applyUnlockedList = (searchMethod: InputMethod, response: GatedListResponse) => {
+    if (response.credits_remaining !== undefined) {
+      setAvailableCredits(response.credits_remaining);
+    }
+
+    setGeneratedLists((currentLists) => ({
+      ...currentLists,
+      [searchMethod]: {
+        ...currentLists[searchMethod],
+        results: response.results,
+        userDetails: response.user_details,
+        isLocked: false,
+        totalCount: response.count,
+        creditNotCharged: false,
+      },
+    }));
+  };
+
   /** Fetch full list from server, save history, and deduct 1 credit. */
-  const unlockList = async (filters: CutoffRequest, searchMethod: InputMethod) => {
+  const unlockList = async (
+    filters: CutoffRequest,
+    searchMethod: InputMethod,
+    options?: { silent?: boolean },
+  ): Promise<GatedListResponse | null> => {
     const accessToken = getAccessToken();
     if (!user || !accessToken) {
       toast({
@@ -493,30 +525,15 @@ const ListGenerator = () => {
         description: "Please sign in again to unlock your list.",
         variant: "destructive",
       });
-      return;
+      return null;
     }
 
-    if (unlockingMethod !== null) return;
+    if (unlockingMethod !== null) return null;
 
     setUnlockingMethod(searchMethod);
     try {
       const response = await unlockCollegeList(filters, accessToken);
-
-      if (response.credits_remaining !== undefined) {
-        setAvailableCredits(response.credits_remaining);
-      }
-
-      setGeneratedLists((currentLists) => ({
-        ...currentLists,
-        [searchMethod]: {
-          ...currentLists[searchMethod],
-          results: response.results,
-          userDetails: response.user_details,
-          isLocked: false,
-          totalCount: response.count,
-          creditNotCharged: false,
-        },
-      }));
+      applyUnlockedList(searchMethod, response);
 
       trackGenerateList({
         inputMethod: searchMethod,
@@ -525,10 +542,14 @@ const ListGenerator = () => {
         creditCharged: true,
       });
 
-      toast({
-        title: "List unlocked!",
-        description: `Showing all ${response.count} colleges. You have ${Math.max(0, response.credits_remaining ?? 0)} credits remaining.`,
-      });
+      if (!options?.silent) {
+        toast({
+          title: "List unlocked!",
+          description: `Showing all ${response.count} colleges. You have ${Math.max(0, response.credits_remaining ?? 0)} credits remaining.`,
+        });
+      }
+
+      return response;
     } catch (err) {
       console.error("[ListGenerator] Error unlocking list:", err);
       toast({
@@ -539,6 +560,7 @@ const ListGenerator = () => {
             : "Could not unlock the full list. Please try again.",
         variant: "destructive",
       });
+      return null;
     } finally {
       setUnlockingMethod((current) => (current === searchMethod ? null : current));
     }
@@ -551,9 +573,7 @@ const ListGenerator = () => {
     if (availableCredits !== null && availableCredits > 0) {
       void unlockList(list.lastFilters, inputMethod);
     } else {
-      setPricingModalContext("unlock_list");
-      trackPricingModalOpened("no_credits");
-      setShowPricingModal(true);
+      openPlansModal("unlock_list", "no_credits");
     }
   };
 
@@ -732,31 +752,44 @@ const ListGenerator = () => {
   }, [user, session?.access_token]);
 
   const handleDownloadPdf = async () => {
-    if (activeGeneratedList.isLocked) {
-      toast({
-        title: "List locked",
-        description: "Unlock the full list first to download the PDF.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (activeGeneratedList.results.length === 0) return;
+    const list = activeGeneratedList;
+    if (!list.hasSearched || list.results.length === 0) return;
+
     const downloadMethod = inputMethod;
     setDownloadingMethod(downloadMethod);
 
     try {
+      let pdfResults = list.results;
+      let pdfUserDetails = list.userDetails;
+      const pdfFilters = list.lastFilters;
+
+      if (list.isLocked) {
+        if (availableCredits === null || availableCredits <= 0) {
+          openPlansModal("unlock_list", "no_credits");
+          return;
+        }
+
+        if (!list.lastFilters) return;
+
+        const unlocked = await unlockList(list.lastFilters, downloadMethod, { silent: true });
+        if (!unlocked) return;
+
+        pdfResults = unlocked.results;
+        pdfUserDetails = unlocked.user_details;
+      }
+
       await downloadCollegeListPdf({
-        results: activeGeneratedList.results,
-        filters: activeGeneratedList.lastFilters,
-        userDetails: activeGeneratedList.userDetails,
+        results: pdfResults,
+        filters: pdfFilters,
+        userDetails: pdfUserDetails,
       });
       trackDownloadPdf({
         source: "list_generator",
-        resultCount: activeGeneratedList.results.length,
+        resultCount: pdfResults.length,
       });
       toast({
         title: "PDF downloaded",
-        description: `Saved ${activeGeneratedList.results.length} college${activeGeneratedList.results.length !== 1 ? "s" : ""} as a PDF.`,
+        description: `Saved ${pdfResults.length} college${pdfResults.length !== 1 ? "s" : ""} as a PDF.`,
       });
     } catch (error) {
       console.error("Failed to generate PDF:", error);
@@ -869,9 +902,9 @@ const ListGenerator = () => {
               creditNotCharged={activeGeneratedList.creditNotCharged}
               isLocked={activeGeneratedList.isLocked}
               totalCount={activeGeneratedList.totalCount}
-              lockedCount={Math.max(0, activeGeneratedList.totalCount - PREVIEW_COLLEGE_COUNT)}
               hasCredits={availableCredits !== null && availableCredits > 0}
               onUnlock={handleUnlockList}
+              isUnlocking={isCurrentMethodUnlocking}
               onDownloadPdf={handleDownloadPdf}
               isDownloadingPdf={isCurrentMethodDownloading}
             />
