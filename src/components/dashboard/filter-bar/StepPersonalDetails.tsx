@@ -184,19 +184,38 @@ export function StepPersonalDetails({
               className="relative cursor-pointer"
               onClick={() => {
                 closeOtherDropdowns("religion");
-                setShowReligionDropdown(!showReligionDropdown);
+                setShowReligionDropdown(true);
               }}
             >
               <Input
                 placeholder="Not Applicable"
                 value={showReligionDropdown ? religionSearch : religion}
-                onChange={(e) => setReligionSearch(e.target.value)}
+                onChange={(e) => {
+                  setReligionSearch(e.target.value);
+                  if (!showReligionDropdown) setShowReligionDropdown(true);
+                }}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={() => {
+                  closeOtherDropdowns("religion");
+                  setShowReligionDropdown(true);
+                }}
                 className={cn(
                   "pr-8 rounded-2xl border-border/80 focus-visible:ring-primary/40",
                   isReligionDefault ? "bg-secondary/30 text-muted-foreground" : "bg-white/90",
                 )}
               />
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <button
+                type="button"
+                className="absolute right-0 top-0 flex h-full w-9 items-center justify-center text-muted-foreground"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeOtherDropdowns("religion");
+                  setShowReligionDropdown((open) => !open);
+                }}
+                aria-label="Toggle minority religion options"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </button>
             </div>
             <AnimatePresence>
               {showReligionDropdown && (
@@ -207,23 +226,29 @@ export function StepPersonalDetails({
                   transition={{ duration: 0.2 }}
                   className="absolute z-30 top-full mt-2 left-0 right-0 max-h-48 overflow-y-auto rounded-2xl glass-strong shadow-2xl border border-border/50"
                 >
-                  {filteredReligions.map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setReligion(r);
-                        setReligionSearch("");
-                        setShowReligionDropdown(false);
-                      }}
-                      className={`w-full text-left px-3 py-2.5 text-sm hover:bg-primary/10 transition-colors flex items-center gap-2 ${
-                        r === religion ? "text-primary font-medium bg-primary/5" : ""
-                      }`}
-                    >
-                      <span className="truncate">{r}</span>
-                    </button>
-                  ))}
+                  {filteredReligions.length > 0 ? (
+                    filteredReligions.map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReligion(r);
+                          setReligionSearch("");
+                          setShowReligionDropdown(false);
+                        }}
+                        className={`w-full text-left px-3 py-2.5 text-sm hover:bg-primary/10 transition-colors flex items-center gap-2 ${
+                          r === religion ? "text-primary font-medium bg-primary/5" : ""
+                        }`}
+                      >
+                        <span className="truncate">{r}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-3 py-3 text-sm text-center text-muted-foreground">
+                      No matching options
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -247,19 +272,38 @@ export function StepPersonalDetails({
               className="relative cursor-pointer"
               onClick={() => {
                 closeOtherDropdowns("language");
-                setShowLanguageDropdown(!showLanguageDropdown);
+                setShowLanguageDropdown(true);
               }}
             >
               <Input
                 placeholder="Not Applicable"
                 value={showLanguageDropdown ? languageSearch : language}
-                onChange={(e) => setLanguageSearch(e.target.value)}
+                onChange={(e) => {
+                  setLanguageSearch(e.target.value);
+                  if (!showLanguageDropdown) setShowLanguageDropdown(true);
+                }}
+                onClick={(e) => e.stopPropagation()}
+                onFocus={() => {
+                  closeOtherDropdowns("language");
+                  setShowLanguageDropdown(true);
+                }}
                 className={cn(
                   "pr-8 rounded-2xl border-border/80 focus-visible:ring-primary/40",
                   isLanguageDefault ? "bg-secondary/30 text-muted-foreground" : "bg-white/90",
                 )}
               />
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <button
+                type="button"
+                className="absolute right-0 top-0 flex h-full w-9 items-center justify-center text-muted-foreground"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeOtherDropdowns("language");
+                  setShowLanguageDropdown((open) => !open);
+                }}
+                aria-label="Toggle minority language options"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </button>
             </div>
             <AnimatePresence>
               {showLanguageDropdown && (
@@ -270,23 +314,29 @@ export function StepPersonalDetails({
                   transition={{ duration: 0.2 }}
                   className="absolute z-30 top-full mt-2 left-0 right-0 max-h-48 overflow-y-auto rounded-2xl glass-strong shadow-2xl border border-border/50"
                 >
-                  {filteredLanguages.map((l) => (
-                    <button
-                      key={l}
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setLanguage(l);
-                        setLanguageSearch("");
-                        setShowLanguageDropdown(false);
-                      }}
-                      className={`w-full text-left px-3 py-2.5 text-sm hover:bg-primary/10 transition-colors flex items-center gap-2 ${
-                        l === language ? "text-primary font-medium bg-primary/5" : ""
-                      }`}
-                    >
-                      <span className="truncate">{l}</span>
-                    </button>
-                  ))}
+                  {filteredLanguages.length > 0 ? (
+                    filteredLanguages.map((l) => (
+                      <button
+                        key={l}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLanguage(l);
+                          setLanguageSearch("");
+                          setShowLanguageDropdown(false);
+                        }}
+                        className={`w-full text-left px-3 py-2.5 text-sm hover:bg-primary/10 transition-colors flex items-center gap-2 ${
+                          l === language ? "text-primary font-medium bg-primary/5" : ""
+                        }`}
+                      >
+                        <span className="truncate">{l}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-3 py-3 text-sm text-center text-muted-foreground">
+                      No matching options
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
