@@ -3,8 +3,15 @@ import { ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { FilterCard } from "./filterBarShared";
+import { FilterCard, LANGUAGE_OPTIONS, RELIGION_OPTIONS } from "./filterBarShared";
 import type { FilterFormState } from "./useFilterFormState";
 
 type StepPersonalDetailsProps = Pick<
@@ -21,24 +28,68 @@ type StepPersonalDetailsProps = Pick<
   | "setLanguage"
   | "uniSearch"
   | "setUniSearch"
-  | "religionSearch"
-  | "setReligionSearch"
-  | "languageSearch"
-  | "setLanguageSearch"
   | "showUniDropdown"
   | "setShowUniDropdown"
-  | "showReligionDropdown"
-  | "setShowReligionDropdown"
-  | "showLanguageDropdown"
-  | "setShowLanguageDropdown"
   | "filteredUniversities"
-  | "filteredReligions"
-  | "filteredLanguages"
   | "universityRef"
-  | "religionRef"
-  | "languageRef"
   | "closeOtherDropdowns"
 >;
+
+function MinoritySelect({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+  isDefault,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: readonly string[];
+  isDefault: boolean;
+}) {
+  return (
+    <FilterCard
+      className={cn(
+        "transition-opacity",
+        isDefault && "opacity-70 bg-secondary/20 border-dashed",
+      )}
+    >
+      <Label
+        htmlFor={id}
+        className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+      >
+        {label}
+        <span className="ml-auto text-[9px] font-normal normal-case tracking-normal text-muted-foreground/80">
+          Optional
+        </span>
+      </Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger
+          id={id}
+          className={cn(
+            "h-10 rounded-2xl border-border/80 focus:ring-primary/40",
+            isDefault ? "bg-secondary/30 text-muted-foreground" : "bg-white/90",
+          )}
+        >
+          <SelectValue placeholder="Not Applicable" />
+        </SelectTrigger>
+        <SelectContent
+          position="popper"
+          className="z-[100] max-h-48 rounded-2xl border-border/50 bg-white shadow-2xl"
+        >
+          {options.map((option) => (
+            <SelectItem key={option} value={option} className="rounded-xl">
+              {option}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FilterCard>
+  );
+}
 
 export function StepPersonalDetails({
   studentName,
@@ -53,22 +104,10 @@ export function StepPersonalDetails({
   setLanguage,
   uniSearch,
   setUniSearch,
-  religionSearch,
-  setReligionSearch,
-  languageSearch,
-  setLanguageSearch,
   showUniDropdown,
   setShowUniDropdown,
-  showReligionDropdown,
-  setShowReligionDropdown,
-  showLanguageDropdown,
-  setShowLanguageDropdown,
   filteredUniversities,
-  filteredReligions,
-  filteredLanguages,
   universityRef,
-  religionRef,
-  languageRef,
   closeOtherDropdowns,
 }: StepPersonalDetailsProps) {
   const isReligionDefault = religion === "Not Applicable";
@@ -105,9 +144,10 @@ export function StepPersonalDetails({
                 placeholder="Select home university"
                 value={showUniDropdown ? uniSearch : university}
                 onChange={(e) => setUniSearch(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
                 className="pr-8 rounded-2xl border-border/80 bg-white/90 focus-visible:ring-primary/40"
               />
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             </div>
             <AnimatePresence>
               {showUniDropdown && (
@@ -116,7 +156,7 @@ export function StepPersonalDetails({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -5, scale: 0.98 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute z-30 top-full mt-2 left-0 right-0 max-h-48 overflow-y-auto rounded-2xl glass-strong shadow-2xl border border-border/50"
+                  className="absolute z-[100] top-full mt-2 left-0 right-0 max-h-48 overflow-y-auto rounded-2xl glass-strong shadow-2xl border border-border/50"
                 >
                   {filteredUniversities.map((u) => (
                     <button
@@ -167,181 +207,22 @@ export function StepPersonalDetails({
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div ref={religionRef} className="relative">
-          <FilterCard
-            className={cn(
-              "transition-opacity",
-              isReligionDefault && "opacity-70 bg-secondary/20 border-dashed",
-            )}
-          >
-            <Label className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Minority Religion
-              <span className="ml-auto text-[9px] font-normal normal-case tracking-normal text-muted-foreground/80">
-                Optional
-              </span>
-            </Label>
-            <div
-              className="relative cursor-pointer"
-              onClick={() => {
-                closeOtherDropdowns("religion");
-                setShowReligionDropdown(true);
-              }}
-            >
-              <Input
-                placeholder="Not Applicable"
-                value={showReligionDropdown ? religionSearch : religion}
-                onChange={(e) => {
-                  setReligionSearch(e.target.value);
-                  if (!showReligionDropdown) setShowReligionDropdown(true);
-                }}
-                onClick={(e) => e.stopPropagation()}
-                onFocus={() => {
-                  closeOtherDropdowns("religion");
-                  setShowReligionDropdown(true);
-                }}
-                className={cn(
-                  "pr-8 rounded-2xl border-border/80 focus-visible:ring-primary/40",
-                  isReligionDefault ? "bg-secondary/30 text-muted-foreground" : "bg-white/90",
-                )}
-              />
-              <button
-                type="button"
-                className="absolute right-0 top-0 flex h-full w-9 items-center justify-center text-muted-foreground"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeOtherDropdowns("religion");
-                  setShowReligionDropdown((open) => !open);
-                }}
-                aria-label="Toggle minority religion options"
-              >
-                <ChevronDown className="h-4 w-4" />
-              </button>
-            </div>
-            <AnimatePresence>
-              {showReligionDropdown && (
-                <motion.div
-                  initial={{ opacity: 0, y: -5, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -5, scale: 0.98 }}
-                  transition={{ duration: 0.2 }}
-                  className="absolute z-30 top-full mt-2 left-0 right-0 max-h-48 overflow-y-auto rounded-2xl glass-strong shadow-2xl border border-border/50"
-                >
-                  {filteredReligions.length > 0 ? (
-                    filteredReligions.map((r) => (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setReligion(r);
-                          setReligionSearch("");
-                          setShowReligionDropdown(false);
-                        }}
-                        className={`w-full text-left px-3 py-2.5 text-sm hover:bg-primary/10 transition-colors flex items-center gap-2 ${
-                          r === religion ? "text-primary font-medium bg-primary/5" : ""
-                        }`}
-                      >
-                        <span className="truncate">{r}</span>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="px-3 py-3 text-sm text-center text-muted-foreground">
-                      No matching options
-                    </div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </FilterCard>
-        </div>
-
-        <div ref={languageRef} className="relative">
-          <FilterCard
-            className={cn(
-              "transition-opacity",
-              isLanguageDefault && "opacity-70 bg-secondary/20 border-dashed",
-            )}
-          >
-            <Label className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-wrap">
-              Minority Language / Ethnicity
-              <span className="ml-auto text-[9px] font-normal normal-case tracking-normal text-muted-foreground/80">
-                Optional
-              </span>
-            </Label>
-            <div
-              className="relative cursor-pointer"
-              onClick={() => {
-                closeOtherDropdowns("language");
-                setShowLanguageDropdown(true);
-              }}
-            >
-              <Input
-                placeholder="Not Applicable"
-                value={showLanguageDropdown ? languageSearch : language}
-                onChange={(e) => {
-                  setLanguageSearch(e.target.value);
-                  if (!showLanguageDropdown) setShowLanguageDropdown(true);
-                }}
-                onClick={(e) => e.stopPropagation()}
-                onFocus={() => {
-                  closeOtherDropdowns("language");
-                  setShowLanguageDropdown(true);
-                }}
-                className={cn(
-                  "pr-8 rounded-2xl border-border/80 focus-visible:ring-primary/40",
-                  isLanguageDefault ? "bg-secondary/30 text-muted-foreground" : "bg-white/90",
-                )}
-              />
-              <button
-                type="button"
-                className="absolute right-0 top-0 flex h-full w-9 items-center justify-center text-muted-foreground"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeOtherDropdowns("language");
-                  setShowLanguageDropdown((open) => !open);
-                }}
-                aria-label="Toggle minority language options"
-              >
-                <ChevronDown className="h-4 w-4" />
-              </button>
-            </div>
-            <AnimatePresence>
-              {showLanguageDropdown && (
-                <motion.div
-                  initial={{ opacity: 0, y: -5, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -5, scale: 0.98 }}
-                  transition={{ duration: 0.2 }}
-                  className="absolute z-30 top-full mt-2 left-0 right-0 max-h-48 overflow-y-auto rounded-2xl glass-strong shadow-2xl border border-border/50"
-                >
-                  {filteredLanguages.length > 0 ? (
-                    filteredLanguages.map((l) => (
-                      <button
-                        key={l}
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setLanguage(l);
-                          setLanguageSearch("");
-                          setShowLanguageDropdown(false);
-                        }}
-                        className={`w-full text-left px-3 py-2.5 text-sm hover:bg-primary/10 transition-colors flex items-center gap-2 ${
-                          l === language ? "text-primary font-medium bg-primary/5" : ""
-                        }`}
-                      >
-                        <span className="truncate">{l}</span>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="px-3 py-3 text-sm text-center text-muted-foreground">
-                      No matching options
-                    </div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </FilterCard>
-        </div>
+        <MinoritySelect
+          id="minority-religion"
+          label="Minority Religion"
+          value={religion}
+          onChange={setReligion}
+          options={RELIGION_OPTIONS}
+          isDefault={isReligionDefault}
+        />
+        <MinoritySelect
+          id="minority-language"
+          label="Minority Language / Ethnicity"
+          value={language}
+          onChange={setLanguage}
+          options={LANGUAGE_OPTIONS}
+          isDefault={isLanguageDefault}
+        />
       </div>
     </div>
   );

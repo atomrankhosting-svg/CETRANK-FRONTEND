@@ -84,7 +84,7 @@ export function FilterBar({ onSearch, isLoading }: FilterBarProps) {
   };
 
   return (
-    <motion.div layout className="panel-surface overflow-hidden relative">
+    <motion.div layout className="panel-surface relative">
       <AnimatePresence>
         {form.pulseKey > 0 && (
           <motion.div
