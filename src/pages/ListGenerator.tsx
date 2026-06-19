@@ -902,6 +902,7 @@ const ListGenerator = () => {
               creditNotCharged={activeGeneratedList.creditNotCharged}
               isLocked={activeGeneratedList.isLocked}
               totalCount={activeGeneratedList.totalCount}
+              lockedCount={Math.max(0, activeGeneratedList.totalCount - PREVIEW_COLLEGE_COUNT)}
               hasCredits={availableCredits !== null && availableCredits > 0}
               onUnlock={handleUnlockList}
               isUnlocking={isCurrentMethodUnlocking}

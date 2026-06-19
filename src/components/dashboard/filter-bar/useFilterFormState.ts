@@ -508,6 +508,7 @@ export function useFilterFormState({ onSearch, currentStep = 1 }: UseFilterFormS
     metadataDivisions,
     divisions,
     availableCities,
+    universities,
     filteredCategories,
     filteredUniversities,
     filteredCities,

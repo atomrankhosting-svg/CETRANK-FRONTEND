@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { CollegeCard } from "./CollegeCard";
+import { ListUnlockBanner } from "./ListUnlockBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, ChevronLeft, ChevronRight, Download, GraduationCap, Search, Sparkles } from "lucide-react";
 import type { CollegeResult } from "@/lib/api";
@@ -14,6 +15,7 @@ interface CollegeResultsProps {
   creditNotCharged?: boolean;
   isLocked?: boolean;
   totalCount?: number;
+  lockedCount?: number;
   hasCredits?: boolean;
   onUnlock?: () => void;
   isUnlocking?: boolean;
@@ -28,6 +30,7 @@ export function CollegeResults({
   creditNotCharged = false,
   isLocked = false,
   totalCount = 0,
+  lockedCount = 0,
   hasCredits = false,
   onUnlock,
   isUnlocking = false,
@@ -180,6 +183,16 @@ export function CollegeResults({
             ))}
           </div>
         </AnimatePresence>
+
+        {isLocked && onUnlock && (
+          <ListUnlockBanner
+            lockedCount={lockedCount}
+            hasCredits={hasCredits}
+            isUnlocking={isUnlocking}
+            isDownloadingPdf={isDownloadingPdf}
+            onUnlock={onUnlock}
+          />
+        )}
       </div>
 
       {!isLocked && visibleResults.length > pageSize && (
